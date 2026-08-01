@@ -11,38 +11,40 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,sans-serif;background:#f3f6f4;color:#202124}
-header{background:#087c3e;color:#fff;text-align:center;padding:16px;font-size:24px;font-weight:700}
-.container{width:94%;max-width:1200px;margin:18px auto 40px}
-.upload-box{background:#fff;border:2px dashed #087c3e;border-radius:14px;text-align:center;padding:28px 15px}
-.upload-box h2{margin:0 0 10px}
-.upload-box p{color:#666;font-size:14px}
+header{background:#087c3e;color:#fff;text-align:center;padding:15px;font-size:23px;font-weight:700}
+.container{width:96%;max-width:1250px;margin:16px auto 40px}
+.upload-box{background:#fff;border:2px dashed #087c3e;border-radius:14px;text-align:center;padding:24px 14px}
+.upload-box h2{margin:0 0 8px;font-size:21px}
+.upload-box p{color:#666;font-size:13px;margin:6px}
 #fileInput{display:none}
-.buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:15px}
-button,.select-button{border:none;border-radius:8px;padding:12px 18px;font-size:15px;font-weight:700;cursor:pointer}
+.buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:14px}
+button,.select-button{border:0;border-radius:8px;padding:12px 17px;font-size:14px;font-weight:700;cursor:pointer}
 .select-button,.green-button{background:#087c3e;color:#fff}
 .gray-button{background:#e7eee9;color:#17633a}
 .red-button{background:#fbe8e8;color:#a21c1c}
 button:disabled{opacity:.45;cursor:not-allowed}
-#fileList{display:none;background:#fff;border-radius:10px;padding:12px;margin-top:14px;max-height:180px;overflow:auto}
-.file-item{border-bottom:1px solid #eee;padding:8px;font-size:13px;overflow-wrap:anywhere}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
-.summary-box{background:#fff;border-radius:10px;text-align:center;padding:11px}
-.summary-box strong{display:block;color:#087c3e;font-size:22px}
-#progressArea{display:none;background:#fff;padding:12px;border-radius:10px;margin-top:14px}
-.progress-track{height:14px;border-radius:20px;background:#e4e9e6;overflow:hidden}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.summary-box{background:#fff;border-radius:10px;text-align:center;padding:9px}
+.summary-box strong{display:block;color:#087c3e;font-size:21px}
+#fileList{display:none;background:#fff;border-radius:10px;padding:10px;margin-top:12px;max-height:160px;overflow:auto}
+.file-item{border-bottom:1px solid #eee;padding:7px;font-size:12px;overflow-wrap:anywhere}
+#progressArea{display:none;background:#fff;padding:11px;border-radius:10px;margin-top:12px}
+.progress-track{height:13px;border-radius:20px;background:#e4e9e6;overflow:hidden}
 #progressBar{width:0%;height:100%;background:#087c3e;transition:width .2s}
-#statusText{margin-top:8px;text-align:center;font-size:14px}
-.table-wrap{background:#fff;overflow-x:auto;margin-top:15px;border-radius:10px}
+#statusText{margin-top:7px;text-align:center;font-size:13px}
+.table-wrap{background:#fff;overflow-x:auto;margin-top:13px;border-radius:10px}
 table{width:100%;min-width:1080px;border-collapse:collapse}
-th{background:#087c3e;color:#fff;padding:10px 7px;font-size:13px;white-space:nowrap}
-td{border:1px solid #ddd;padding:9px 7px;text-align:center;font-size:13px}
-.file-name{text-align:left;max-width:190px;overflow-wrap:anywhere}
-.success{color:green;font-weight:700}
-.error{color:red;font-weight:700}
+th{background:#087c3e;color:#fff;padding:9px 6px;font-size:12px;white-space:nowrap}
+td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
+.file-name{text-align:left;max-width:185px;overflow-wrap:anywhere}
+.success{color:#087c3e;font-weight:700}
+.warning{color:#b26a00;font-weight:700}
+.error{color:#b42318;font-weight:700}
+.note{margin-top:10px;background:#fff7dc;border-radius:9px;padding:9px;font-size:12px;color:#654b00}
 @media(max-width:600px){
-  header{font-size:20px}
-  button,.select-button{width:100%}
-  .summary-box{font-size:12px;padding:8px 3px}
+ header{font-size:19px}
+ button,.select-button{width:100%}
+ .summary-box{font-size:12px;padding:7px 2px}
 }
 </style>
 </head>
@@ -53,14 +55,13 @@ td{border:1px solid #ddd;padding:9px 7px;text-align:center;font-size:13px}
 <div class="container">
   <div class="upload-box">
     <h2>Registry PDF / Image Upload</h2>
-    <p>PDF, JPG, JPEG और PNG — अधिकतम 100 Files</p>
+    <p>अधिकतम 100 PDF / JPG / PNG</p>
+    <p>ऑफिस रिपोर्ट के लिए केवल 8 जरूरी Fields</p>
 
     <div class="buttons">
       <label class="select-button" for="fileInput">📁 Select Files</label>
       <input id="fileInput" type="file"
-             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-             multiple>
-
+        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
       <button id="processButton" class="green-button" disabled>▶ Start Reading</button>
       <button id="csvButton" class="gray-button" disabled>⬇ Download CSV</button>
       <button id="clearButton" class="red-button" disabled>🗑 Clear</button>
@@ -102,10 +103,608 @@ td{border:1px solid #ddd;padding:9px 7px;text-align:center;font-size:13px}
       </tbody>
     </table>
   </div>
+
+  <div class="note">
+    जहाँ लेन-देन राशि या कलेक्टर दर PDF में खाली है, वहाँ 0.00 आएगा।
+  </div>
 </div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const fileInput = document.getElementById("fileInput");
+const processButton = document.getElementById("processButton");
+const csvButton = document.getElementById("csvButton");
+const clearButton = document.getElementById("clearButton");
+const fileList = document.getElementById("fileList");
+const resultBody = document.getElementById("resultBody");
+const selectedCount = document.getElementById("selectedCount");
+const completedCount = document.getElementById("completedCount");
+const failedCount = document.getElementById("failedCount");
+const progressArea = document.getElementById("progressArea");
+const progressBar = document.getElementById("progressBar");
+const statusText = document.getElementById("statusText");
+
+let selectedFiles = [];
+let finalResults = [];
+
+fileInput.addEventListener("change", () => {
+  const files = Array.from(fileInput.files || []);
+
+  if(files.length > 100){
+    alert("एक बार में अधिकतम 100 Files Select करें।");
+    fileInput.value = "";
+    return;
+  }
+
+  selectedFiles = files;
+  finalResults = [];
+  selectedCount.textContent = selectedFiles.length;
+  completedCount.textContent = "0";
+  failedCount.textContent = "0";
+  processButton.disabled = selectedFiles.length === 0;
+  clearButton.disabled = selectedFiles.length === 0;
+  csvButton.disabled = true;
+  showFiles();
+
+  resultBody.innerHTML = selectedFiles.length
+    ? `<tr><td colspan="11">${selectedFiles.length} Files Select हो गई हैं। अब Start Reading दबाएँ।</td></tr>`
+    : `<tr><td colspan="11">पहले PDF या Image Select करें</td></tr>`;
+});
+
+function showFiles(){
+  if(!selectedFiles.length){
+    fileList.style.display = "none";
+    fileList.innerHTML = "";
+    return;
+  }
+  fileList.style.display = "block";
+  fileList.innerHTML = selectedFiles.map((file,index) =>
+    `<div class="file-item">${index + 1}. ${escapeHtml(file.name)}</div>`
+  ).join("");
+}
+
+clearButton.addEventListener("click", () => {
+  selectedFiles = [];
+  finalResults = [];
+  fileInput.value = "";
+  selectedCount.textContent = "0";
+  completedCount.textContent = "0";
+  failedCount.textContent = "0";
+  processButton.disabled = true;
+  csvButton.disabled = true;
+  clearButton.disabled = true;
+  progressArea.style.display = "none";
+  progressBar.style.width = "0%";
+  showFiles();
+  resultBody.innerHTML =
+    `<tr><td colspan="11">पहले PDF या Image Select करें</td></tr>`;
+});
+
+processButton.addEventListener("click", async () => {
+  if(!selectedFiles.length) return;
+
+  processButton.disabled = true;
+  csvButton.disabled = true;
+  finalResults = [];
+  resultBody.innerHTML = "";
+  progressArea.style.display = "block";
+
+  let completed = 0;
+  let failed = 0;
+
+  for(let i = 0; i < selectedFiles.length; i++){
+    const file = selectedFiles[i];
+    setProgress(i, selectedFiles.length,
+      `Reading ${i + 1}/${selectedFiles.length}: ${file.name}`);
+
+    let record;
+    try{
+      record = await readAndExtract(file);
+      record.fileName = file.name;
+
+      if(record.registryNumber || record.tokenNumber){
+        record.status = record.warning ? "Check" : "Completed";
+        completed++;
+      }else{
+        record.status = "Data Not Found";
+        failed++;
+      }
+    }catch(error){
+      console.error(error);
+      record = emptyRecord();
+      record.fileName = file.name;
+      record.status = "Error";
+      failed++;
+    }
+
+    finalResults.push(record);
+    addTableRow(record, i + 1);
+    completedCount.textContent = completed;
+    failedCount.textContent = failed;
+  }
+
+  setProgress(selectedFiles.length, selectedFiles.length,
+    `Completed: ${completed} | Failed: ${failed}`);
+  processButton.disabled = false;
+  csvButton.disabled = finalResults.length === 0;
+});
+
+/* ---------- PDF / IMAGE READING ---------- */
+
+async function readAndExtract(file){
+  const name = file.name.toLowerCase();
+
+  if(file.type === "application/pdf" || name.endsWith(".pdf")){
+    const pdfData = await readPdfStructured(file);
+    return extractPdfRecord(pdfData);
+  }
+
+  if(file.type.startsWith("image/") ||
+     name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")){
+    statusText.textContent = "Image OCR चल रहा है...";
+    const text = await runOcr(file);
+    return extractTextRecord(text);
+  }
+
+  throw new Error("Unsupported File");
+}
+
+/*
+  पहले 2 pages ही पढ़े जाते हैं।
+  Panipat की supplied PDFs में सभी 8 details page 1 या page 2 पर हैं।
+  Text को केवल flat string नहीं बनाया जाता; उसी Y-position वाली cells को
+  एक visual row में जोड़ा जाता है। इसी से राशि और collector rate सही उठते हैं।
+*/
+async function readPdfStructured(file){
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const pagesToRead = Math.min(pdf.numPages, 2);
+
+  let allText = "";
+  let allRows = [];
+
+  for(let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++){
+    statusText.textContent =
+      `PDF Page ${pageNumber}/${pagesToRead} पढ़ रहा है...`;
+
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const items = content.items
+      .filter(item => String(item.str || "").trim())
+      .map(item => ({
+        text: String(item.str || "").trim(),
+        x: Number(item.transform?.[4] || 0),
+        y: Number(item.transform?.[5] || 0)
+      }));
+
+    allText += " " + items.map(item => item.text).join(" ");
+
+    const rows = groupItemsIntoRows(items, pageNumber);
+    allRows.push(...rows);
+  }
+
+  /*
+    scanned PDF में text layer न हो, तभी OCR।
+    सामान्य सरकारी PDF में OCR नहीं चलाया जाता, इसलिए processing तेज रहती है।
+  */
+  if(normalizeText(allText).length < 60){
+    allText = "";
+    allRows = [];
+
+    for(let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++){
+      statusText.textContent =
+        `Scanned PDF Page ${pageNumber} OCR चल रहा है...`;
+
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({scale: 1.65});
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      await page.render({canvasContext: context, viewport}).promise;
+
+      const pageText = await runOcr(canvas);
+      allText += " " + pageText;
+    }
+  }
+
+  return {text: normalizeText(allText), rows: allRows};
+}
+
+function groupItemsIntoRows(items, pageNumber){
+  const tolerance = 3.5;
+  const groups = [];
+
+  // PDF coordinate में ऊपर की line का Y बड़ा होता है।
+  const sorted = [...items].sort((a,b) => (b.y - a.y) || (a.x - b.x));
+
+  for(const item of sorted){
+    let group = groups.find(row => Math.abs(row.y - item.y) <= tolerance);
+
+    if(!group){
+      group = {page: pageNumber, y: item.y, items: []};
+      groups.push(group);
+    }
+
+    group.items.push(item);
+    group.y = group.items.reduce((sum,v) => sum + v.y, 0) / group.items.length;
+  }
+
+  return groups
+    .map(group => ({
+      page: group.page,
+      y: group.y,
+      text: group.items.sort((a,b) => a.x - b.x).map(v => v.text).join(" ")
+    }))
+    .sort((a,b) => (a.page - b.page) || (b.y - a.y));
+}
+
+async function runOcr(source){
+  const result = await Tesseract.recognize(source, "eng", {
+    logger: message => {
+      if(message.status === "recognizing text" &&
+         typeof message.progress === "number"){
+        statusText.textContent = `OCR ${Math.round(message.progress * 100)}%`;
+      }
+    }
+  });
+  return result.data.text || "";
+}
+
+/* ---------- DATA EXTRACTION ---------- */
+
+function extractPdfRecord(pdfData){
+  const text = pdfData.text;
+  const rows = pdfData.rows || [];
+
+  const record = emptyRecord();
+
+  record.deedType = extractDeedType(text);
+  record.registryNumber = cleanInteger(firstMatch(text, [
+    /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+    /Registration\s*Number\s*[:\-]?\s*(\d+)/i,
+    /प्रलेख\s*क्र\.?\s*[:\-]?\s*(\d+)/i
+  ]));
+
+  record.registrationDate = cleanDate(firstMatch(text, [
+    /Registration\s*No\.?\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+    /Registration\s*Number\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+    /\bDate\s*[:\-]\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+  ]));
+
+  record.tokenNumber = firstMatch(text, [
+    /Token\s*No\.?\s*[:\-]?\s*([A-Z0-9_]+)/i,
+    /\(Token\s*:\s*([A-Z0-9_]+)\)/i,
+    /\b(PAN_[A-Z0-9_]+)\b/i
+  ]);
+
+  record.stampDuty = cleanAmount(firstMatch(text, [
+    /Stamp\s*Duty\s*Paid\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
+  ]));
+
+  record.registrationFees = cleanAmount(firstMatch(text, [
+    /Registration\s*Fees?\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
+  ]));
+
+  /*
+    मुख्य सुधार:
+    धन संबंधी table की visual row में पहली तीन monetary values का क्रम हमेशा:
+    1. लेन-देन राशि
+    2. कलेक्टर दर
+    3. स्टाम्प शुल्क
+
+    Collector खाली हो तो row में केवल:
+    1. लेन-देन राशि
+    2. स्टाम्प शुल्क
+  */
+  const finance = extractFinanceFromVisualRows(rows, record.stampDuty);
+
+  record.deedAmount = finance.deedAmount;
+  record.collectorRate = finance.collectorRate;
+
+  // English certificate missing होने की स्थिति में financial row से stamp duty.
+  if(record.stampDuty === "0.00" && finance.stampDuty !== "0.00"){
+    record.stampDuty = finance.stampDuty;
+  }
+
+  // Registration fee कभी next row में होती है।
+  if(record.registrationFees === "0.00"){
+    record.registrationFees = extractRegistrationFeeFromRows(rows, record.stampDuty);
+  }
+
+  return record;
+}
+
+function extractFinanceFromVisualRows(rows, knownStampDuty){
+  const candidates = [];
+
+  for(const row of rows){
+    const line = normalizeText(row.text);
+
+    // Stamp certificate की English row को financial summary न समझें।
+    if(/Stamp\s*Duty\s*Paid|Registration\s*Fees|First\s*Party|Second\s*Party/i.test(line)){
+      continue;
+    }
+
+    const numbers = extractDecimalNumbers(line);
+    if(numbers.length < 2) continue;
+
+    const stampMatch = knownStampDuty !== "0.00" &&
+      numbers.some(value => amountsEqual(value, knownStampDuty));
+
+    let score = 0;
+    if(numbers.length >= 3) score += 100;
+    if(numbers.length === 2) score += 45;
+    if(stampMatch) score += 50;
+    if(/[\u0900-\u097F]/.test(line)) score += 15;
+
+    // वित्तीय पहली row, अगली fee row से पहले आती है।
+    score -= (row.page - 1) * 0.1;
+    score += row.y / 100000;
+
+    candidates.push({row, line, numbers, score});
+  }
+
+  if(!candidates.length){
+    return {deedAmount:"0.00", collectorRate:"0.00", stampDuty: knownStampDuty || "0.00"};
+  }
+
+  candidates.sort((a,b) => b.score - a.score);
+  let best = candidates[0];
+
+  /*
+    2-number case में fee row भी हो सकती है:
+    [Stamp Duty, Registration Fee].
+    उस स्थिति में उसी page पर उससे पहले आने वाली 2-number row चुनें।
+  */
+  if(best.numbers.length === 2 &&
+     amountsEqual(best.numbers[0], knownStampDuty) &&
+     !amountsEqual(best.numbers[1], knownStampDuty)){
+
+    const earlier = candidates
+      .filter(c =>
+        c.numbers.length === 2 &&
+        amountsEqual(c.numbers[1], knownStampDuty) &&
+        ((c.row.page < best.row.page) ||
+         (c.row.page === best.row.page && c.row.y > best.row.y)))
+      .sort((a,b) => (a.row.page - b.row.page) || (b.row.y - a.row.y))[0];
+
+    if(earlier) best = earlier;
+  }
+
+  const nums = best.numbers;
+
+  if(nums.length >= 3){
+    return {
+      deedAmount: cleanAmount(nums[0]),
+      collectorRate: cleanAmount(nums[1]),
+      stampDuty: cleanAmount(nums[2])
+    };
+  }
+
+  // Collector Rate खाली: [Deed Amount, Stamp Duty]
+  if(nums.length === 2 && amountsEqual(nums[1], knownStampDuty)){
+    return {
+      deedAmount: cleanAmount(nums[0]),
+      collectorRate: "0.00",
+      stampDuty: cleanAmount(nums[1])
+    };
+  }
+
+  // Deed Amount और Collector दोनों absent माने जाएँ।
+  return {
+    deedAmount: "0.00",
+    collectorRate: "0.00",
+    stampDuty: knownStampDuty || "0.00"
+  };
+}
+
+function extractRegistrationFeeFromRows(rows, stampDuty){
+  for(const row of rows){
+    const line = normalizeText(row.text);
+    if(/Stamp\s*Duty\s*Paid|Registration\s*Fees/i.test(line)) continue;
+
+    const nums = extractDecimalNumbers(line);
+    if(nums.length >= 2 && amountsEqual(nums[0], stampDuty)){
+      return cleanAmount(nums[1]);
+    }
+  }
+  return "0.00";
+}
+
+function extractTextRecord(text){
+  text = normalizeText(text);
+  const record = emptyRecord();
+
+  record.deedType = extractDeedType(text);
+  record.registryNumber = cleanInteger(firstMatch(text, [
+    /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+    /Registration\s*Number\s*[:\-]?\s*(\d+)/i
+  ]));
+  record.registrationDate = cleanDate(firstMatch(text, [
+    /Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+  ]));
+  record.tokenNumber = firstMatch(text, [
+    /Token\s*(?:No\.?)?\s*[:\-]?\s*([A-Z0-9_]+)/i,
+    /\b(PAN_[A-Z0-9_]+)\b/i
+  ]);
+  record.stampDuty = cleanAmount(firstMatch(text, [
+    /Stamp\s*Duty\s*Paid\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
+  ]));
+  record.registrationFees = cleanAmount(firstMatch(text, [
+    /Registration\s*Fees?\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
+  ]));
+
+  // Image OCR में Hindi reliable न हो तो राशि/collector 0 रखना सुरक्षित है।
+  record.deedAmount = "0.00";
+  record.collectorRate = "0.00";
+  record.warning = true;
+
+  return record;
+}
+
+function extractDeedType(text){
+  const patterns = [
+    [/\bTRANSFER\s+OF\s+IMMOVABLE\s+PROPERTY\s+DEED\b/i, "TRANSFER OF IMMOVABLE PROPERTY"],
+    [/\bPOWER\s+OF\s+ATTORNEY\s+DEED\b/i, "POWER OF ATTORNEY"],
+    [/\bCONVEYANCE\s+DEED\b/i, "CONVEYANCE"],
+    [/\bAGREEMENT\s+DEED\b/i, "AGREEMENT"],
+    [/\bTARTIMA\s+DEED\b/i, "TARTIMA"],
+    [/\bTRUST\s+DEED\b/i, "TRUST"],
+    [/\bADOPTION\s+DEED\b/i, "ADOPTION"],
+    [/\bCANCELLATION\s+DEED\b/i, "CANCELLATION"],
+    [/\bRECTIFICATION\s+DEED\b/i, "RECTIFICATION"],
+    [/\bPARTITION\s+DEED\b/i, "PARTITION"],
+    [/\bRELEASE\s+DEED\b/i, "RELEASE"],
+    [/\bSURRENDER\s+OF\s+LEASE\b/i, "SURRENDER OF LEASE"],
+    [/\bLEASE\s+DEED\b/i, "LEASE"],
+    [/\bGIFT\s+DEED\b/i, "GIFT"],
+    [/\bSALE\s+DEED\b/i, "SALE"],
+    [/\bWILL\s+DEED\b/i, "WILL"],
+    [/\bGPA\b/i, "GPA"],
+    [/\bSPA\b/i, "SPA"]
+  ];
+
+  for(const [pattern,label] of patterns){
+    if(pattern.test(text)) return label;
+  }
+
+  const purpose = firstMatch(text, [/Purpose\s*[:\-]\s*([A-Z ]{2,40})/i]);
+  return purpose ? purpose.trim() : "";
+}
+
+/* ---------- HELPERS ---------- */
+
+function extractDecimalNumbers(text){
+  const matches = String(text || "").match(/(?<![\d/])\d[\d,]{0,14}\.\d{1,2}(?!\d)/g) || [];
+  return matches.map(cleanAmount);
+}
+
+function amountsEqual(a,b){
+  return Math.abs(Number(a || 0) - Number(b || 0)) < 0.005;
+}
+
+function normalizeText(text){
+  return String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b|\u200c|\u200d|\ufeff/g, "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function firstMatch(text, patterns){
+  for(const pattern of patterns){
+    const match = String(text || "").match(pattern);
+    if(match && match[1]) return match[1].trim();
+  }
+  return "";
+}
+
+function cleanInteger(value){
+  return String(value || "").replace(/[^\d]/g, "");
+}
+
+function cleanAmount(value){
+  const cleaned = String(value ?? "")
+    .replace(/,/g, "")
+    .replace(/[^\d.]/g, "");
+
+  if(!cleaned) return "0.00";
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number.toFixed(2) : "0.00";
+}
+
+function cleanDate(value){
+  return value ? String(value).replace(/-/g, "/") : "";
+}
+
+function emptyRecord(){
+  return {
+    fileName:"",
+    deedType:"",
+    registryNumber:"",
+    registrationDate:"",
+    tokenNumber:"",
+    deedAmount:"0.00",
+    collectorRate:"0.00",
+    stampDuty:"0.00",
+    registrationFees:"0.00",
+    warning:false,
+    status:""
+  };
+}
+
+function addTableRow(record, serial){
+  const statusClass =
+    record.status === "Completed" ? "success" :
+    record.status === "Check" ? "warning" : "error";
+
+  resultBody.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${serial}</td>
+      <td class="file-name">${escapeHtml(record.fileName)}</td>
+      <td>${escapeHtml(record.deedType || "Not Found")}</td>
+      <td>${escapeHtml(record.registryNumber || "Not Found")}</td>
+      <td>${escapeHtml(record.registrationDate || "Not Found")}</td>
+      <td>${escapeHtml(record.tokenNumber || "Not Found")}</td>
+      <td>${escapeHtml(record.deedAmount)}</td>
+      <td>${escapeHtml(record.collectorRate)}</td>
+      <td>${escapeHtml(record.stampDuty)}</td>
+      <td>${escapeHtml(record.registrationFees)}</td>
+      <td class="${statusClass}">${escapeHtml(record.status)}</td>
+    </tr>
+  `);
+}
+
+function setProgress(done,total,message){
+  const percentage = total ? Math.round((done / total) * 100) : 0;
+  progressBar.style.width = percentage + "%";
+  statusText.textContent = message;
+}
+
+csvButton.addEventListener("click", () => {
+  if(!finalResults.length) return;
+
+  const rows = [
+    [
+      "Deed Type","Registry Number","Registration Date","Token Number",
+      "Deed Amount","Collector Rate","Stamp Duty","Registration Fee"
+    ],
+    ...finalResults.map(record => [
+      record.deedType,record.registryNumber,record.registrationDate,
+      record.tokenNumber,record.deedAmount,record.collectorRate,
+      record.stampDuty,record.registrationFees
+    ])
+  ];
+
+  const csv = "\uFEFF" +
+    rows.map(row => row.map(csvCell).join(",")).join("\n");
+
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "panipat-registry-data.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+function csvCell(value){
+  return `"${String(value ?? "").replace(/"/g,'""')}"`;
+}
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;")
+    .replaceAll(">","&gt;").replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+</script>
+</body>
+</html>
 "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const fileInput = document.getElementById("fileInput");
