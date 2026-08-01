@@ -6,7 +6,7 @@ header{background:#087c3e;color:#fff;text-align:center;padding:16px;font-size:24
 .upload-card{padding:22px 14px;text-align:center;border:2px dashed #087c3e}
 .upload-card h1{margin:0 0 8px;font-size:23px}
 .upload-card p{margin:0;color:#666}
-#fileInput{display:none}
+#fileInput{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .buttons{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:15px}
 .button{border:0;border-radius:8px;padding:12px 17px;font-weight:700;font-size:14px;cursor:pointer}
 .primary{background:#087c3e;color:#fff}
