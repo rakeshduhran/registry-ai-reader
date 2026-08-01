@@ -1,53 +1,48 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Reader</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
   <header>PDF Reader</header>
 
   <main class="container">
-<section class="card upload-box">
-      <h2>Registry PDF / Image Upload</h2>
-      <p><b>PDF:</b> 1 PDF = 1 Registry</p>
-      <p><b>Images:</b> 2 Images = 1 Registry (पहले Page 1, फिर Page 2 चुनें)</p>
+    <section class="upload-card">
+      <h1>Registry PDF Upload</h1>
+      <p>एक साथ अधिकतम 100 PDF</p>
 
       <div class="buttons">
-        <label class="primary file-label" for="fileInput">📁 Select Files</label>
-        <input id="fileInput" type="file"
-          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-          multiple />
-        <button id="readButton" class="primary" disabled>▶ Read Data</button>
-        <button id="csvButton" class="secondary" disabled>⬇ Download CSV</button>
-        <button id="clearButton" class="danger" disabled>🗑 Clear</button>
+        <label for="fileInput" class="button primary">📁 Select PDFs</label>
+        <input id="fileInput" type="file" accept=".pdf,application/pdf" multiple>
+        <button id="readButton" class="button primary" disabled>▶ Read Data</button>
+        <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
+        <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
       </div>
     </section>
 
     <section class="summary">
-      <div class="summary-box">Selected<strong id="selectedCount">0</strong></div>
-      <div class="summary-box">Completed<strong id="completedCount">0</strong></div>
-      <div class="summary-box">Failed<strong id="failedCount">0</strong></div>
+      <div>Selected<strong id="selectedCount">0</strong></div>
+      <div>Completed<strong id="completedCount">0</strong></div>
+      <div>Check<strong id="checkCount">0</strong></div>
     </section>
 
-    <section id="fileList" class="card hidden"></section>
+    <section id="fileList" class="file-list hidden"></section>
 
-    <section id="progressArea" class="card hidden">
+    <section id="progressArea" class="progress-card hidden">
       <div class="progress-track"><div id="progressBar"></div></div>
       <div id="statusText">Ready</div>
     </section>
 
-    <section class="table-wrap card">
+    <section class="table-card">
       <table>
         <thead>
           <tr>
             <th>Sr.</th>
-            <th>File Name</th>
             <th>Deed Type</th>
             <th>Registry No.</th>
             <th>Registration Date</th>
@@ -60,7 +55,7 @@
           </tr>
         </thead>
         <tbody id="resultBody">
-          <tr><td colspan="11">पहले PDF या Images Select करें</td></tr>
+          <tr><td colspan="10">पहले PDF Select करें</td></tr>
         </tbody>
       </table>
     </section>
