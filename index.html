@@ -33,7 +33,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #progressBar{width:0%;height:100%;background:#087c3e;transition:width .2s}
 #statusText{margin-top:8px;text-align:center;font-size:14px}
 .table-wrap{background:#fff;overflow-x:auto;margin-top:15px;border-radius:10px}
-table{width:100%;min-width:1120px;border-collapse:collapse}
+table{width:100%;min-width:1080px;border-collapse:collapse}
 th{background:#087c3e;color:#fff;padding:10px 7px;font-size:13px;white-space:nowrap}
 td{border:1px solid #ddd;padding:9px 7px;text-align:center;font-size:13px}
 .file-name{text-align:left;max-width:190px;overflow-wrap:anywhere}
@@ -261,7 +261,6 @@ async function readPdf(file){
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
 
-  // इन सभी 8 fields के लिए Panipat PDF के पहले 2 pages पर्याप्त हैं।
   const pagesToRead = Math.min(pdf.numPages, 2);
   let fullText = "";
 
@@ -271,10 +270,16 @@ async function readPdf(file){
 
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
-    fullText += " " + textContent.items.map(item => item.str).join(" ");
+
+    /*
+      str के साथ spaces जोड़ना जरूरी है।
+      Panipat PDF की Hindi अक्सर "रा शि", "पंजी करण" जैसे टुकड़ों में आती है।
+    */
+    fullText += " " + textContent.items
+      .map(item => String(item.str || ""))
+      .join(" ");
   }
 
-  // Scanned PDF होने पर OCR
   if(normalizeText(fullText).length < 60){
     fullText = "";
 
@@ -351,24 +356,26 @@ function extractData(originalText){
       /\b(PAN_[A-Z0-9_]+)\b/i
     ]),
 
-    // Panipat PDF Page 2:
-    // "लेन-देन रा शि - 1000000.00 रुपये"
-    deedAmount: cleanAmount(firstMatch(text, [
-      /लेन\s*[-–]?\s*देन\s*(?:रा\s*शि|राशि)\s*[-:]\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /लेन\s*देन\s*(?:रा\s*शि|राशि)\s*[-:]\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /Transaction\s*Amount\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /Consideration\s*(?:Amount|Value)?\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /Deed\s*Amount\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i
-    ])),
+    /*
+      यह function normal text और बिना-space compact Hindi दोनों पर खोजता है।
+      इसलिए "लेन-देन रा शि", "लेन देन राशि", "लेन-देनराशि" सभी चलेंगे।
+    */
+    deedAmount: getLabeledAmount(text, [
+      "लेन-देनराशि",
+      "लेनदेनराशि",
+      "लेन-देनराशि",
+      "transactionamount",
+      "considerationamount",
+      "considerationvalue",
+      "deedamount"
+    ]),
 
-    // Panipat PDF Page 2:
-    // "कलेक्टर दर- 1129600.00 रुपये"
-    collectorRate: cleanAmount(firstMatch(text, [
-      /कलेक्टर\s*दर\s*[-:]\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /कलैक्टर\s*दर\s*[-:]\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /Collector\s*Rate\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
-      /Collector\s*Value\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i
-    ])),
+    collectorRate: getLabeledAmount(text, [
+      "कलेक्टरदर",
+      "कलैक्टरदर",
+      "collectorrate",
+      "collectorvalue"
+    ]),
 
     stampDuty: cleanAmount(firstMatch(text, [
       /Stamp\s*Duty\s*Paid\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d+)?)/i,
@@ -387,9 +394,47 @@ function extractData(originalText){
   };
 }
 
+/*
+  Panipat PDF Hindi text में अक्षरों के बीच spaces आ जाते हैं।
+  यह function spaces, ₹, colon, hyphen हटाकर compact text में label ढूंढता है।
+*/
+function getLabeledAmount(text, labels){
+  const compact = String(text || "")
+    .toLowerCase()
+    .replace(/\u200b|\u200c|\u200d|\ufeff/g, "")
+    .replace(/[₹:–—-]/g, "")
+    .replace(/\s+/g, "");
+
+  for(const label of labels){
+    const compactLabel = String(label)
+      .toLowerCase()
+      .replace(/[₹:–—-]/g, "")
+      .replace(/\s+/g, "");
+
+    const index = compact.indexOf(compactLabel);
+
+    if(index !== -1){
+      const afterLabel = compact.slice(index + compactLabel.length);
+
+      /*
+        Label के तुरंत बाद आने वाला पहला बड़ा numeric value।
+        1 से 15 digits और optional decimal।
+      */
+      const match = afterLabel.match(/([0-9][0-9,]{0,14}(?:\.[0-9]{1,2})?)/);
+
+      if(match && match[1]){
+        return cleanAmount(match[1]);
+      }
+    }
+  }
+
+  return "";
+}
+
 function normalizeText(text){
   return String(text || "")
     .replace(/\u00a0/g, " ")
+    .replace(/\u200b|\u200c|\u200d|\ufeff/g, "")
     .replace(/[–—]/g, "-")
     .replace(/\s+/g, " ")
     .trim();
