@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Registry AI Reader</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#f4f6f8;
+}
+
+.header{
+    background:#0b7a3d;
+    color:white;
+    text-align:center;
+    padding:18px;
+    font-size:28px;
+    font-weight:bold;
+}
+
+.container{
+    width:90%;
+    max-width:900px;
+    margin:20px auto;
+}
+
+.upload-box{
+    border:3px dashed #0b7a3d;
+    border-radius:12px;
+    background:white;
+    padding:40px;
+    text-align:center;
+}
+
+input[type=file]{
+    display:none;
+}
+
+.btn{
+    background:#0b7a3d;
+    color:white;
+    padding:12px 25px;
+    border-radius:8px;
+    cursor:pointer;
+    display:inline-block;
+    margin-top:15px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    background:white;
+}
+
+th{
+    background:#0b7a3d;
+    color:white;
+    padding:10px;
+}
+
+td{
+    border:1px solid #ddd;
+    padding:8px;
+    text-align:center;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+Registry AI Reader
+</div>
+
+<div class="container">
+
+<div class="upload-box">
+
+<h2>Upload Registry PDF / Image</h2>
+
+<p>
+Supports PDF, JPG, PNG
+</p>
+
+<label class="btn">
+
+Select Files
+
+<input type="file" multiple>
+
+</label>
+
+</div>
+
+<table>
+
+<tr>
+
+<th>Deed Type</th>
+
+<th>Registry No</th>
+
+<th>Date</th>
+
+<th>Token No</th>
+
+<th>Amount</th>
+
+<th>Collector Rate</th>
+
+<th>Stamp Duty</th>
+
+<th>Registration Fee</th>
+
+</tr>
+
+<tr>
+
+<td colspan="8">
+No Data
+</td>
+
+</tr>
+
+</table>
+
+</div>
+
+</body>
+</html>
