@@ -1,112 +1,71 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panipat Registry Reader</title>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-<style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f3f6f4;color:#202124}
-header{background:#087c3e;color:#fff;text-align:center;padding:15px;font-size:23px;font-weight:700}
-.container{width:96%;max-width:1250px;margin:16px auto 40px}
-.upload-box{background:#fff;border:2px dashed #087c3e;border-radius:14px;text-align:center;padding:24px 14px}
-.upload-box h2{margin:0 0 8px;font-size:21px}
-.upload-box p{color:#666;font-size:13px;margin:6px}
-#fileInput{display:none}
-.buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:14px}
-button,.select-button{border:0;border-radius:8px;padding:12px 17px;font-size:14px;font-weight:700;cursor:pointer}
-.select-button,.green-button{background:#087c3e;color:#fff}
-.gray-button{background:#e7eee9;color:#17633a}
-.red-button{background:#fbe8e8;color:#a21c1c}
-button:disabled{opacity:.45;cursor:not-allowed}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
-.summary-box{background:#fff;border-radius:10px;text-align:center;padding:9px}
-.summary-box strong{display:block;color:#087c3e;font-size:21px}
-#fileList{display:none;background:#fff;border-radius:10px;padding:10px;margin-top:12px;max-height:160px;overflow:auto}
-.file-item{border-bottom:1px solid #eee;padding:7px;font-size:12px;overflow-wrap:anywhere}
-#progressArea{display:none;background:#fff;padding:11px;border-radius:10px;margin-top:12px}
-.progress-track{height:13px;border-radius:20px;background:#e4e9e6;overflow:hidden}
-#progressBar{width:0%;height:100%;background:#087c3e;transition:width .2s}
-#statusText{margin-top:7px;text-align:center;font-size:13px}
-.table-wrap{background:#fff;overflow-x:auto;margin-top:13px;border-radius:10px}
-table{width:100%;min-width:1080px;border-collapse:collapse}
-th{background:#087c3e;color:#fff;padding:9px 6px;font-size:12px;white-space:nowrap}
-td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
-.file-name{text-align:left;max-width:185px;overflow-wrap:anywhere}
-.success{color:#087c3e;font-weight:700}
-.warning{color:#b26a00;font-weight:700}
-.error{color:#b42318;font-weight:700}
-.note{margin-top:10px;background:#fff7dc;border-radius:9px;padding:9px;font-size:12px;color:#654b00}
-@media(max-width:600px){
- header{font-size:19px}
- button,.select-button{width:100%}
- .summary-box{font-size:12px;padding:7px 2px}
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panipat Registry Reader</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script defer src="app.js"></script>
 </head>
-
 <body>
-<header>Panipat Registry Reader</header>
+  <header>Panipat Registry Reader</header>
 
-<div class="container">
-  <div class="upload-box">
-    <h2>Registry PDF / Image Upload</h2>
-    <p>अधिकतम 100 PDF / JPG / PNG</p>
-    <p>ऑफिस रिपोर्ट के लिए केवल 8 जरूरी Fields</p>
+  <main class="container">
+    <section class="upload-box">
+      <h2>Registry PDF / Image Upload</h2>
+      <p>अधिकतम 100 PDF / JPG / PNG</p>
+      <p>ऑफिस रिपोर्ट के लिए केवल 8 जरूरी Fields</p>
 
-    <div class="buttons">
-      <label class="select-button" for="fileInput">📁 Select Files</label>
-      <input id="fileInput" type="file"
-        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
-      <button id="processButton" class="green-button" disabled>▶ Start Reading</button>
-      <button id="csvButton" class="gray-button" disabled>⬇ Download CSV</button>
-      <button id="clearButton" class="red-button" disabled>🗑 Clear</button>
-    </div>
-  </div>
+      <div class="buttons">
+        <label class="select-button" for="fileInput">📁 Select Files</label>
+        <input id="fileInput" type="file"
+          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
+        <button id="processButton" class="green-button" disabled>▶ Start Reading</button>
+        <button id="csvButton" class="gray-button" disabled>⬇ Download CSV</button>
+        <button id="clearButton" class="red-button" disabled>🗑 Clear</button>
+      </div>
+    </section>
 
-  <div class="summary">
-    <div class="summary-box">Selected<strong id="selectedCount">0</strong></div>
-    <div class="summary-box">Completed<strong id="completedCount">0</strong></div>
-    <div class="summary-box">Failed<strong id="failedCount">0</strong></div>
-  </div>
+    <section class="summary">
+      <div class="summary-box">Selected<strong id="selectedCount">0</strong></div>
+      <div class="summary-box">Completed<strong id="completedCount">0</strong></div>
+      <div class="summary-box">Failed<strong id="failedCount">0</strong></div>
+    </section>
 
-  <div id="fileList"></div>
+    <section id="fileList"></section>
 
-  <div id="progressArea">
-    <div class="progress-track"><div id="progressBar"></div></div>
-    <div id="statusText">Ready</div>
-  </div>
+    <section id="progressArea">
+      <div class="progress-track"><div id="progressBar"></div></div>
+      <div id="statusText">Ready</div>
+    </section>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Sr.</th>
-          <th>File Name</th>
-          <th>Deed Type</th>
-          <th>Registry No.</th>
-          <th>Registration Date</th>
-          <th>Token No.</th>
-          <th>Deed Amount</th>
-          <th>Collector Rate</th>
-          <th>Stamp Duty</th>
-          <th>Registration Fee</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="resultBody">
-        <tr><td colspan="11">पहले PDF या Image Select करें</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="note">
-    जहाँ लेन-देन राशि या कलेक्टर दर PDF में खाली है, वहाँ 0.00 आएगा।
-  </div>
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sr.</th>
+            <th>File Name</th>
+            <th>Deed Type</th>
+            <th>Registry No.</th>
+            <th>Registration Date</th>
+            <th>Token No.</th>
+            <th>Deed Amount</th>
+            <th>Collector Rate</th>
+            <th>Stamp Duty</th>
+            <th>Registration Fee</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr><td colspan="11">पहले PDF या Image Select करें</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>  </div>
 </div>
 
 <script>
