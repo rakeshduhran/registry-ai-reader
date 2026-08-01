@@ -1,0 +1,36 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f6f4;color:#202124}
+header{background:#087c3e;color:#fff;text-align:center;padding:15px;font-size:23px;font-weight:700}
+.container{width:96%;max-width:1280px;margin:16px auto 40px}
+.upload-box{background:#fff;border:2px dashed #087c3e;border-radius:14px;text-align:center;padding:24px 14px}
+.upload-box h2{margin:0 0 8px;font-size:21px}
+.upload-box p{color:#666;font-size:13px;margin:6px}
+#fileInput{display:none}
+.buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:14px}
+button,.select-button{border:0;border-radius:8px;padding:12px 17px;font-size:14px;font-weight:700;cursor:pointer}
+.select-button,.green-button{background:#087c3e;color:#fff}
+.gray-button{background:#e7eee9;color:#17633a}
+.red-button{background:#fbe8e8;color:#a21c1c}
+button:disabled{opacity:.45;cursor:not-allowed}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.summary-box{background:#fff;border-radius:10px;text-align:center;padding:9px}
+.summary-box strong{display:block;color:#087c3e;font-size:21px}
+#fileList{display:none;background:#fff;border-radius:10px;padding:10px;margin-top:12px;max-height:160px;overflow:auto}
+.file-item{border-bottom:1px solid #eee;padding:7px;font-size:12px;overflow-wrap:anywhere}
+#progressArea{display:none;background:#fff;padding:11px;border-radius:10px;margin-top:12px}
+.progress-track{height:13px;border-radius:20px;background:#e4e9e6;overflow:hidden}
+#progressBar{width:0%;height:100%;background:#087c3e;transition:width .2s}
+#statusText{margin-top:7px;text-align:center;font-size:13px}
+.table-wrap{background:#fff;overflow-x:auto;margin-top:13px;border-radius:10px}
+table{width:100%;min-width:1080px;border-collapse:collapse}
+th{background:#087c3e;color:#fff;padding:9px 6px;font-size:12px;white-space:nowrap}
+td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
+.file-name{text-align:left;max-width:185px;overflow-wrap:anywhere}
+.success{color:#087c3e;font-weight:700}
+.warning{color:#b26a00;font-weight:700}
+.error{color:#b42318;font-weight:700}
+@media(max-width:600px){
+ header{font-size:19px}
+ button,.select-button{width:100%}
+ .summary-box{font-size:12px;padding:7px 2px}
+}
