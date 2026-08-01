@@ -217,6 +217,24 @@ readButton.addEventListener("click", async () => {
       else checks++;
 
       results.push(record);
+      // Google Sheet Auto Save
+fetch("https://script.google.com/macros/s/AKfycbyA_OAVmGJm9iMgC_a365vWCqlDz134Wm_zp8x4hQ9p91kPMJIm7ax-wKyOiup14pUG/exec", {
+  method: "POST",
+  mode: "no-cors",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    deedType: record.deedType,
+    registryNumber: record.registryNumber,
+    registrationDate: record.registrationDate,
+    tokenNumber: record.tokenNumber,
+    deedAmount: record.deedAmount,
+    landValue: record.landValue,
+    stampDuty: record.stampDuty,
+    registrationFees: record.registrationFees
+  })
+}).catch(console.error);
       appendRow(record, i + 1);
     } catch (error) {
       console.error(file.name, error);
