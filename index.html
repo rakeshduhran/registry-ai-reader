@@ -7,19 +7,21 @@
   <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f3f6f4;color:#202124;font-family:Arial,sans-serif}
-header{background:#087c3e;color:#fff;text-align:center;padding:16px;font-size:24px;font-weight:700}
+header{background:#087c3e;color:#fff;text-align:center;padding:15px;font-size:23px;font-weight:700}
+.version{font-size:12px;font-weight:400;opacity:.9}
 .container{width:96%;max-width:1280px;margin:16px auto 40px}
 .upload-card,.file-list,.progress-card,.table-card{background:#fff;border-radius:12px;margin-top:12px}
 .upload-card{padding:22px 14px;text-align:center;border:2px dashed #087c3e}
-.upload-card h1{margin:0 0 8px;font-size:23px}
-.upload-card p{margin:0;color:#666}
-
+.upload-card h1{margin:0 0 8px;font-size:22px}
+.upload-card p{margin:0;color:#666;font-size:13px}
 .buttons{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:15px}
 .button{border:0;border-radius:8px;padding:12px 17px;font-weight:700;font-size:14px;cursor:pointer}
 .primary{background:#087c3e;color:#fff}
 .secondary{background:#e7eee9;color:#17633a}
 .danger{background:#fbe8e8;color:#a21c1c}
 button:disabled{opacity:.42;cursor:not-allowed}
+.native-picker{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center}
+.native-picker input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
 .summary div{background:#fff;border-radius:10px;text-align:center;padding:10px}
 .summary strong{display:block;color:#087c3e;font-size:23px}
@@ -37,82 +39,515 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
 .warning{color:#b26a00;font-weight:700}
 .hidden{display:none}
 @media(max-width:650px){
- header{font-size:20px}
- .button{width:100%}
- .upload-card h1{font-size:20px}
-}.native-picker{
-  position:relative;
-  overflow:hidden;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  header{font-size:20px}
+  .button{width:100%}
+  .upload-card h1{font-size:20px}
 }
-.native-picker input[type="file"]{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  opacity:0;
-  cursor:pointer;
-  font-size:100px;
-}
-  </style>
+</style>
 </head>
 <body>
-<header>PDF Reader</header>
+<header>PDF Reader <span class="version">v2.2</span></header>
 
-  <main class="container">
-    <section class="upload-card">
-      <h1>Registry PDF Upload</h1>
-      <p>एक साथ अधिकतम 100 PDF</p>
-
-      <div class="buttons">
-        <div class="native-picker button primary">
-          📁 Select PDFs
-          <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple>
-        </div>
-        <button id="readButton" class="button primary" disabled>▶ Read Data</button>
-        <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
-        <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
+<main class="container">
+  <section class="upload-card">
+    <h1>Registry PDF Upload</h1>
+    <p>एक साथ अधिकतम 100 PDF</p>
+    <div class="buttons">
+      <div class="button primary native-picker">📁 Select PDFs
+        <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple>
       </div>
-    </section>
+      <button id="readButton" class="button primary" disabled>▶ Read Data</button>
+      <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
+      <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
+    </div>
+  </section>
 
-    <section class="summary">
-      <div>Selected<strong id="selectedCount">0</strong></div>
-      <div>Completed<strong id="completedCount">0</strong></div>
-      <div>Check<strong id="checkCount">0</strong></div>
-    </section>
+  <section class="summary">
+    <div>Selected<strong id="selectedCount">0</strong></div>
+    <div>Completed<strong id="completedCount">0</strong></div>
+    <div>Check<strong id="checkCount">0</strong></div>
+  </section>
 
-    <section id="fileList" class="file-list hidden"></section>
+  <section id="fileList" class="file-list hidden"></section>
 
-    <section id="progressArea" class="progress-card hidden">
-      <div class="progress-track"><div id="progressBar"></div></div>
-      <div id="statusText">Ready</div>
-    </section>
+  <section id="progressArea" class="progress-card hidden">
+    <div class="progress-track"><div id="progressBar"></div></div>
+    <div id="statusText">Ready</div>
+  </section>
 
-    <section class="table-card">
-      <table>
-        <thead>
-          <tr>
-            <th>Sr.</th>
-            <th>Deed Type</th>
-            <th>Registry No.</th>
-            <th>Registration Date</th>
-            <th>Token No.</th>
-            <th>Deed Amount</th>
-            <th>Land Value</th>
-            <th>Stamp Duty</th>
-            <th>Registration Fee</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="resultBody">
-          <tr><td colspan="10">पहले PDF Select करें</td></tr>
-        </tbody>
-      </table>
-    </section>
-  </main>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="data:text/javascript;base64,InVzZSBzdHJpY3QiOwoKcGRmanNMaWIuR2xvYmFsV29ya2VyT3B0aW9ucy53b3JrZXJTcmMgPQogICJodHRwczovL2NkbmpzLmNsb3VkZmxhcmUuY29tL2FqYXgvbGlicy9wZGYuanMvMy4xMS4xNzQvcGRmLndvcmtlci5taW4uanMiOwoKY29uc3QgJCA9IGlkID0+IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlkKTsKY29uc3QgZmlsZUlucHV0ID0gJCgiZmlsZUlucHV0Iik7CmNvbnN0IHJlYWRCdXR0b24gPSAkKCJyZWFkQnV0dG9uIik7CmNvbnN0IGNzdkJ1dHRvbiA9ICQoImNzdkJ1dHRvbiIpOwpjb25zdCBjbGVhckJ1dHRvbiA9ICQoImNsZWFyQnV0dG9uIik7CmNvbnN0IGZpbGVMaXN0ID0gJCgiZmlsZUxpc3QiKTsKY29uc3QgcHJvZ3Jlc3NBcmVhID0gJCgicHJvZ3Jlc3NBcmVhIik7CmNvbnN0IHByb2dyZXNzQmFyID0gJCgicHJvZ3Jlc3NCYXIiKTsKY29uc3Qgc3RhdHVzVGV4dCA9ICQoInN0YXR1c1RleHQiKTsKY29uc3QgcmVzdWx0Qm9keSA9ICQoInJlc3VsdEJvZHkiKTsKY29uc3Qgc2VsZWN0ZWRDb3VudCA9ICQoInNlbGVjdGVkQ291bnQiKTsKY29uc3QgY29tcGxldGVkQ291bnQgPSAkKCJjb21wbGV0ZWRDb3VudCIpOwpjb25zdCBjaGVja0NvdW50ID0gJCgiY2hlY2tDb3VudCIpOwoKbGV0IHNlbGVjdGVkRmlsZXMgPSBbXTsKbGV0IHJlc3VsdHMgPSBbXTsKCmZpbGVJbnB1dC5hZGRFdmVudExpc3RlbmVyKCJjaGFuZ2UiLCAoKSA9PiB7CiAgY29uc3QgZmlsZXMgPSBBcnJheS5mcm9tKGZpbGVJbnB1dC5maWxlcyB8fCBbXSkuZmlsdGVyKGZpbGUgPT4KICAgIGZpbGUudHlwZSA9PT0gImFwcGxpY2F0aW9uL3BkZiIgfHwgZmlsZS5uYW1lLnRvTG93ZXJDYXNlKCkuZW5kc1dpdGgoIi5wZGYiKQogICk7CgogIGlmIChmaWxlcy5sZW5ndGggPiAxMDApIHsKICAgIGFsZXJ0KCLgpI/gpJUg4KSs4KS+4KSwIOCkruClh+CkgiDgpIXgpKfgpL/gpJXgpKTgpK4gMTAwIFBERiBTZWxlY3Qg4KSV4KSw4KWH4KSC4KWkIik7CiAgICBmaWxlSW5wdXQudmFsdWUgPSAiIjsKICAgIHNlbGVjdGVkRmlsZXMgPSBbXTsKICAgIHJldHVybjsKICB9CgogIHNlbGVjdGVkRmlsZXMgPSBmaWxlczsKICByZXN1bHRzID0gW107CiAgc2VsZWN0ZWRDb3VudC50ZXh0Q29udGVudCA9IFN0cmluZyhmaWxlcy5sZW5ndGgpOwogIGNvbXBsZXRlZENvdW50LnRleHRDb250ZW50ID0gIjAiOwogIGNoZWNrQ291bnQudGV4dENvbnRlbnQgPSAiMCI7CiAgcmVhZEJ1dHRvbi5kaXNhYmxlZCA9IGZpbGVzLmxlbmd0aCA9PT0gMDsKICBjc3ZCdXR0b24uZGlzYWJsZWQgPSB0cnVlOwogIGNsZWFyQnV0dG9uLmRpc2FibGVkID0gZmlsZXMubGVuZ3RoID09PSAwOwogIHJlbmRlckZpbGVzKCk7CgogIHJlc3VsdEJvZHkuaW5uZXJIVE1MID0gZmlsZXMubGVuZ3RoCiAgICA/IGA8dHI+PHRkIGNvbHNwYW49IjEwIj4ke2ZpbGVzLmxlbmd0aH0gUERGIFNlbGVjdCDgpLngpYsg4KSX4KSIIOCkueCliOCkguClpCBSZWFkIERhdGEg4KSm4KSs4KS+4KSP4KSB4KWkPC90ZD48L3RyPmAKICAgIDogYDx0cj48dGQgY29sc3Bhbj0iMTAiPuCkquCkueCksuClhyBQREYgU2VsZWN0IOCkleCksOClh+CkgjwvdGQ+PC90cj5gOwp9KTsKCmNsZWFyQnV0dG9uLmFkZEV2ZW50TGlzdGVuZXIoImNsaWNrIiwgcmVzZXRBbGwpOwoKZnVuY3Rpb24gcmVzZXRBbGwoKSB7CiAgc2VsZWN0ZWRGaWxlcyA9IFtdOwogIHJlc3VsdHMgPSBbXTsKICBmaWxlSW5wdXQudmFsdWUgPSAiIjsKICBzZWxlY3RlZENvdW50LnRleHRDb250ZW50ID0gIjAiOwogIGNvbXBsZXRlZENvdW50LnRleHRDb250ZW50ID0gIjAiOwogIGNoZWNrQ291bnQudGV4dENvbnRlbnQgPSAiMCI7CiAgcmVhZEJ1dHRvbi5kaXNhYmxlZCA9IHRydWU7CiAgY3N2QnV0dG9uLmRpc2FibGVkID0gdHJ1ZTsKICBjbGVhckJ1dHRvbi5kaXNhYmxlZCA9IHRydWU7CiAgZmlsZUxpc3QuaW5uZXJIVE1MID0gIiI7CiAgZmlsZUxpc3QuY2xhc3NMaXN0LmFkZCgiaGlkZGVuIik7CiAgcHJvZ3Jlc3NBcmVhLmNsYXNzTGlzdC5hZGQoImhpZGRlbiIpOwogIHByb2dyZXNzQmFyLnN0eWxlLndpZHRoID0gIjAlIjsKICByZXN1bHRCb2R5LmlubmVySFRNTCA9IGA8dHI+PHRkIGNvbHNwYW49IjEwIj7gpKrgpLngpLLgpYcgUERGIFNlbGVjdCDgpJXgpLDgpYfgpII8L3RkPjwvdHI+YDsKfQoKZnVuY3Rpb24gcmVuZGVyRmlsZXMoKSB7CiAgaWYgKCFzZWxlY3RlZEZpbGVzLmxlbmd0aCkgewogICAgZmlsZUxpc3QuY2xhc3NMaXN0LmFkZCgiaGlkZGVuIik7CiAgICByZXR1cm47CiAgfQogIGZpbGVMaXN0LmNsYXNzTGlzdC5yZW1vdmUoImhpZGRlbiIpOwogIGZpbGVMaXN0LmlubmVySFRNTCA9IHNlbGVjdGVkRmlsZXMubWFwKChmaWxlLCBpKSA9PgogICAgYDxkaXYgY2xhc3M9ImZpbGUtaXRlbSI+JHtpICsgMX0uICR7ZXNjYXBlSHRtbChmaWxlLm5hbWUpfTwvZGl2PmAKICApLmpvaW4oIiIpOwp9CgpyZWFkQnV0dG9uLmFkZEV2ZW50TGlzdGVuZXIoImNsaWNrIiwgYXN5bmMgKCkgPT4gewogIGlmICghc2VsZWN0ZWRGaWxlcy5sZW5ndGgpIHJldHVybjsKCiAgcmVzdWx0cyA9IFtdOwogIHJlc3VsdEJvZHkuaW5uZXJIVE1MID0gIiI7CiAgcHJvZ3Jlc3NBcmVhLmNsYXNzTGlzdC5yZW1vdmUoImhpZGRlbiIpOwogIHJlYWRCdXR0b24uZGlzYWJsZWQgPSB0cnVlOwogIGNzdkJ1dHRvbi5kaXNhYmxlZCA9IHRydWU7CgogIGxldCBjb21wbGV0ZWQgPSAwOwogIGxldCBjaGVja3MgPSAwOwoKICBmb3IgKGxldCBpID0gMDsgaSA8IHNlbGVjdGVkRmlsZXMubGVuZ3RoOyBpKyspIHsKICAgIGNvbnN0IGZpbGUgPSBzZWxlY3RlZEZpbGVzW2ldOwogICAgc2V0UHJvZ3Jlc3MoaSwgc2VsZWN0ZWRGaWxlcy5sZW5ndGgsCiAgICAgIGBSZWFkaW5nICR7aSArIDF9LyR7c2VsZWN0ZWRGaWxlcy5sZW5ndGh9OiAke2ZpbGUubmFtZX1gKTsKCiAgICB0cnkgewogICAgICBjb25zdCB0ZXh0ID0gYXdhaXQgZXh0cmFjdEZpcnN0VHdvUGFnZXMoZmlsZSk7CiAgICAgIGNvbnN0IHJlY29yZCA9IHBhcnNlUmVnaXN0cnlUZXh0KHRleHQpOwogICAgICByZWNvcmQuZmlsZU5hbWUgPSBmaWxlLm5hbWU7CgogICAgICBjb25zdCBpZGVudGl0eU9rYXkgPQogICAgICAgIHJlY29yZC5kZWVkVHlwZSAmJiByZWNvcmQucmVnaXN0cnlOdW1iZXIgJiYKICAgICAgICByZWNvcmQucmVnaXN0cmF0aW9uRGF0ZSAmJiByZWNvcmQudG9rZW5OdW1iZXI7CgogICAgICByZWNvcmQuc3RhdHVzID0gaWRlbnRpdHlPa2F5ID8gIkNvbXBsZXRlZCIgOiAiQ2hlY2siOwogICAgICBpZiAoaWRlbnRpdHlPa2F5KSBjb21wbGV0ZWQrKzsKICAgICAgZWxzZSBjaGVja3MrKzsKCiAgICAgIHJlc3VsdHMucHVzaChyZWNvcmQpOwogICAgICBhcHBlbmRSb3cocmVjb3JkLCBpICsgMSk7CiAgICB9IGNhdGNoIChlcnJvcikgewogICAgICBjb25zb2xlLmVycm9yKGZpbGUubmFtZSwgZXJyb3IpOwogICAgICBjb25zdCByZWNvcmQgPSBlbXB0eVJlY29yZCgpOwogICAgICByZWNvcmQuZmlsZU5hbWUgPSBmaWxlLm5hbWU7CiAgICAgIHJlY29yZC5zdGF0dXMgPSAiQ2hlY2siOwogICAgICByZXN1bHRzLnB1c2gocmVjb3JkKTsKICAgICAgY2hlY2tzKys7CiAgICAgIGFwcGVuZFJvdyhyZWNvcmQsIGkgKyAxKTsKICAgIH0KCiAgICBjb21wbGV0ZWRDb3VudC50ZXh0Q29udGVudCA9IFN0cmluZyhjb21wbGV0ZWQpOwogICAgY2hlY2tDb3VudC50ZXh0Q29udGVudCA9IFN0cmluZyhjaGVja3MpOwogIH0KCiAgc2V0UHJvZ3Jlc3Moc2VsZWN0ZWRGaWxlcy5sZW5ndGgsIHNlbGVjdGVkRmlsZXMubGVuZ3RoLAogICAgYENvbXBsZXRlZDogJHtjb21wbGV0ZWR9IHwgQ2hlY2s6ICR7Y2hlY2tzfWApOwoKICByZWFkQnV0dG9uLmRpc2FibGVkID0gZmFsc2U7CiAgY3N2QnV0dG9uLmRpc2FibGVkID0gcmVzdWx0cy5sZW5ndGggPT09IDA7Cn0pOwoKYXN5bmMgZnVuY3Rpb24gZXh0cmFjdEZpcnN0VHdvUGFnZXMoZmlsZSkgewogIGNvbnN0IGJ1ZmZlciA9IGF3YWl0IGZpbGUuYXJyYXlCdWZmZXIoKTsKICBjb25zdCBwZGYgPSBhd2FpdCBwZGZqc0xpYi5nZXREb2N1bWVudCh7ZGF0YTogYnVmZmVyfSkucHJvbWlzZTsKICBjb25zdCBwYWdlQ291bnQgPSBNYXRoLm1pbigyLCBwZGYubnVtUGFnZXMpOwogIGNvbnN0IHBhZ2VUZXh0cyA9IFtdOwoKICBmb3IgKGxldCBwYWdlTnVtYmVyID0gMTsgcGFnZU51bWJlciA8PSBwYWdlQ291bnQ7IHBhZ2VOdW1iZXIrKykgewogICAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9CiAgICAgIGBQREYgUGFnZSAke3BhZ2VOdW1iZXJ9LyR7cGFnZUNvdW50fSDgpKrgpKLgpLwg4KSw4KS54KS+IOCkueCliC4uLmA7CgogICAgY29uc3QgcGFnZSA9IGF3YWl0IHBkZi5nZXRQYWdlKHBhZ2VOdW1iZXIpOwogICAgY29uc3QgY29udGVudCA9IGF3YWl0IHBhZ2UuZ2V0VGV4dENvbnRlbnQoKTsKICAgIGNvbnN0IGxpbmVzID0gZ3JvdXBQZGZJdGVtc0ludG9MaW5lcyhjb250ZW50Lml0ZW1zKTsKICAgIHBhZ2VUZXh0cy5wdXNoKGxpbmVzLmpvaW4oIlxuIikpOwogIH0KCiAgcmV0dXJuIG5vcm1hbGl6ZVRleHQocGFnZVRleHRzLmpvaW4oIlxuIikpOwp9CgpmdW5jdGlvbiBncm91cFBkZkl0ZW1zSW50b0xpbmVzKGl0ZW1zKSB7CiAgY29uc3QgdXNhYmxlID0gaXRlbXMKICAgIC5maWx0ZXIoaXRlbSA9PiBTdHJpbmcoaXRlbS5zdHIgfHwgIiIpLnRyaW0oKSkKICAgIC5tYXAoaXRlbSA9PiAoewogICAgICB0ZXh0OiBTdHJpbmcoaXRlbS5zdHIgfHwgIiIpLnRyaW0oKSwKICAgICAgeDogTnVtYmVyKGl0ZW0udHJhbnNmb3JtPy5bNF0gfHwgMCksCiAgICAgIHk6IE51bWJlcihpdGVtLnRyYW5zZm9ybT8uWzVdIHx8IDApCiAgICB9KSkKICAgIC5zb3J0KChhLCBiKSA9PiAoYi55IC0gYS55KSB8fCAoYS54IC0gYi54KSk7CgogIGNvbnN0IHJvd3MgPSBbXTsKICBjb25zdCB0b2xlcmFuY2UgPSAzLjU7CgogIGZvciAoY29uc3QgaXRlbSBvZiB1c2FibGUpIHsKICAgIGxldCByb3cgPSByb3dzLmZpbmQoY2FuZGlkYXRlID0+CiAgICAgIE1hdGguYWJzKGNhbmRpZGF0ZS55IC0gaXRlbS55KSA8PSB0b2xlcmFuY2UKICAgICk7CgogICAgaWYgKCFyb3cpIHsKICAgICAgcm93ID0ge3k6IGl0ZW0ueSwgaXRlbXM6IFtdfTsKICAgICAgcm93cy5wdXNoKHJvdyk7CiAgICB9CgogICAgcm93Lml0ZW1zLnB1c2goaXRlbSk7CiAgfQoKICByZXR1cm4gcm93cwogICAgLnNvcnQoKGEsIGIpID0+IGIueSAtIGEueSkKICAgIC5tYXAocm93ID0+IHJvdy5pdGVtcwogICAgICAuc29ydCgoYSwgYikgPT4gYS54IC0gYi54KQogICAgICAubWFwKGl0ZW0gPT4gaXRlbS50ZXh0KQogICAgICAuam9pbigiICIpCiAgICAgIC5yZXBsYWNlKC9ccysvZywgIiAiKQogICAgICAudHJpbSgpCiAgICApCiAgICAuZmlsdGVyKEJvb2xlYW4pOwp9CgpmdW5jdGlvbiBwYXJzZVJlZ2lzdHJ5VGV4dCh0ZXh0KSB7CiAgY29uc3QgcmVjb3JkID0gZW1wdHlSZWNvcmQoKTsKICBjb25zdCBjbGVhbiA9IG5vcm1hbGl6ZVRleHQodGV4dCk7CgogIHJlY29yZC5kZWVkVHlwZSA9IGV4dHJhY3REZWVkVHlwZShjbGVhbik7CgogIHJlY29yZC5yZWdpc3RyeU51bWJlciA9IGZpcnN0TWF0Y2goY2xlYW4sIFsKICAgIC9SZWdpc3RyYXRpb25ccypOb1wuP1xzKjpccyooXGQrKS9pLAogICAgL+CkquCljeCksOCksuClh+CkllxzKuCkleCljeCksFwuP1xzKjpccyooXGQrKS9pCiAgXSk7CgogIHJlY29yZC5yZWdpc3RyYXRpb25EYXRlID0gbm9ybWFsaXplRGF0ZShmaXJzdE1hdGNoKGNsZWFuLCBbCiAgICAvUmVnaXN0cmF0aW9uXHMqTm9cLj9ccyo6XHMqXGQrXHMqRGF0ZVxzKjpccyooXGR7MSwyfVtcLy1dXGR7MSwyfVtcLy1dXGR7NH0pL2ksCiAgICAv4KSq4KSC4KSc4KWA4KSV4KSw4KSjXHMq4KSm4KS/4KSo4KS+4KSC4KSVXHMqOlxzKihcZHsxLDJ9W1wvLV1cZHsxLDJ9W1wvLV1cZHs0fSkvaQogIF0pKTsKCiAgcmVjb3JkLnRva2VuTnVtYmVyID0gZmlyc3RNYXRjaChjbGVhbiwgWwogICAgL1Rva2VuXHMqTm9cLj9ccyo6XHMqKFtBLVowLTlfXSspL2ksCiAgICAvXChUb2tlblxzKjpccyooW0EtWjAtOV9dKylcKS9pLAogICAgL1xiKFBBTl9bQS1aMC05X10rKVxiL2kKICBdKTsKCiAgY29uc3QgY29tcGFjdCA9IGNvbXBhY3RGaW5hbmNpYWxUZXh0KGNsZWFuKTsKCiAgcmVjb3JkLmRlZWRBbW91bnQgPSBleHRyYWN0RmluYW5jaWFsQW1vdW50KGNvbXBhY3QsIFsKICAgICLgpLLgpYfgpKjgpKbgpYfgpKjgpLDgpL7gpLbgpL8iLCAi4KSy4KWH4KSo4KSm4KWH4KSo4KSw4KS+4KS24KWAIiwKICAgICJ0cmFuc2FjdGlvbmFtb3VudCIsICJjb25zaWRlcmF0aW9uYW1vdW50IiwgImRlZWRhbW91bnQiCiAgXSk7CgogIHJlY29yZC5sYW5kVmFsdWUgPSBleHRyYWN0RmluYW5jaWFsQW1vdW50KGNvbXBhY3QsIFsKICAgICLgpJXgpLLgpYfgpJXgpY3gpJ/gpLDgpKbgpLAiLCAi4KSV4KSy4KWI4KSV4KWN4KSf4KSw4KSm4KSwIiwKICAgICJsYW5kdmFsdWUiLCAiY29sbGVjdG9ycmF0ZSIsICJjb2xsZWN0b3J2YWx1ZSIKICBdKTsKCiAgcmVjb3JkLnN0YW1wRHV0eSA9IGV4dHJhY3RFbmdsaXNoT3JGaW5hbmNpYWxBbW91bnQoY2xlYW4sIGNvbXBhY3QsIFsKICAgIC9TdGFtcFxzKkR1dHlccypQYWlkXHMqOlxzKuKCuT9ccyooW1xkLF0rKD86XC5cZHsxLDJ9KT8pL2kKICBdLCBbCiAgICAi4KSV4KWB4KSy4KS44KWN4KSf4KS+4KSu4KWN4KSq4KS24KWB4KSy4KWN4KSVIiwgIuCkleClgeCksuCkuOCljeCkn+CkvuCkvuCkruCljeCkquCktuClgeCksuCljeCklSIsICLgpJXgpYHgpLLgpLjgpY3gpJ/gpL7gpILgpKrgpLbgpYHgpLLgpY3gpJUiLAogICAgInN0YW1wZHV0eXBhaWQiLCAic3RhbXBkdXR5IgogIF0pOwoKICByZWNvcmQucmVnaXN0cmF0aW9uRmVlcyA9IGV4dHJhY3RFbmdsaXNoT3JGaW5hbmNpYWxBbW91bnQoY2xlYW4sIGNvbXBhY3QsIFsKICAgIC9SZWdpc3RyYXRpb25ccypGZWVzP1xzKjpccyrigrk/XHMqKFtcZCxcc10rKD86XC5cZHsxLDJ9KT8pL2kKICBdLCBbCiAgICAi4KSq4KSC4KSc4KWA4KSV4KSw4KSj4KSr4KWA4KS4IiwgIuCkquCkguCknOClgOCkleCksOCko+CktuClgeCksuCljeCklSIsCiAgICAicmVnaXN0cmF0aW9uZmVlcyIsICJyZWdpc3RyYXRpb25mZWUiCiAgXSk7CgogIHJldHVybiByZWNvcmQ7Cn0KCmZ1bmN0aW9uIGV4dHJhY3REZWVkVHlwZSh0ZXh0KSB7CiAgY29uc3QgbGluZXMgPSB0ZXh0LnNwbGl0KC9cbisvKS5tYXAobGluZSA9PiBsaW5lLnRyaW0oKSkuZmlsdGVyKEJvb2xlYW4pOwoKICBmb3IgKGNvbnN0IGxpbmUgb2YgbGluZXMpIHsKICAgIGNvbnN0IG5vcm1hbGl6ZWQgPSBsaW5lLnJlcGxhY2UoL1xzKy9nLCAiICIpLnRyaW0oKTsKICAgIGlmICgvXltBLVpdW0EtWiAvJigpJy1dezEsODB9XHMrREVFRCQvaS50ZXN0KG5vcm1hbGl6ZWQpKSB7CiAgICAgIHJldHVybiBub3JtYWxpemVkCiAgICAgICAgLnJlcGxhY2UoL1xzK0RFRUQkL2ksICIiKQogICAgICAgIC5yZXBsYWNlKC9ccysvZywgIiAiKQogICAgICAgIC50cmltKCkKICAgICAgICAudG9VcHBlckNhc2UoKTsKICAgIH0KICB9CgogIGNvbnN0IHB1cnBvc2UgPSBmaXJzdE1hdGNoKHRleHQsIFsKICAgIC9QdXJwb3NlXHMqOlxzKihbQS1aXVtBLVogXXsxLDYwfSkvaQogIF0pOwoKICByZXR1cm4gcHVycG9zZSA/IHB1cnBvc2UudG9VcHBlckNhc2UoKS50cmltKCkgOiAiIjsKfQoKZnVuY3Rpb24gZXh0cmFjdEVuZ2xpc2hPckZpbmFuY2lhbEFtb3VudCh0ZXh0LCBjb21wYWN0LCBlbmdsaXNoUGF0dGVybnMsIGFsaWFzZXMpIHsKICBjb25zdCBlbmdsaXNoVmFsdWUgPSBmaXJzdE1hdGNoKHRleHQsIGVuZ2xpc2hQYXR0ZXJucyk7CiAgcmV0dXJuIGVuZ2xpc2hWYWx1ZQogICAgPyBmb3JtYXRBbW91bnQoZW5nbGlzaFZhbHVlKQogICAgOiBleHRyYWN0RmluYW5jaWFsQW1vdW50KGNvbXBhY3QsIGFsaWFzZXMpOwp9CgpmdW5jdGlvbiBleHRyYWN0RmluYW5jaWFsQW1vdW50KGNvbXBhY3QsIGFsaWFzZXMpIHsKICBjb25zdCBhbGxMYWJlbHMgPSBbCiAgICAi4KSy4KWH4KSo4KSm4KWH4KSo4KSw4KS+4KS24KS/IiwgIuCksuClh+CkqOCkpuClh+CkqOCksOCkvuCktuClgCIsICJ0cmFuc2FjdGlvbmFtb3VudCIsCiAgICAiY29uc2lkZXJhdGlvbmFtb3VudCIsICJkZWVkYW1vdW50IiwKICAgICLgpJXgpLLgpYfgpJXgpY3gpJ/gpLDgpKbgpLAiLCAi4KSV4KSy4KWI4KSV4KWN4KSf4KSw4KSm4KSwIiwgImxhbmR2YWx1ZSIsCiAgICAiY29sbGVjdG9ycmF0ZSIsICJjb2xsZWN0b3J2YWx1ZSIsCiAgICAi4KSV4KWB4KSy4KS44KWN4KSf4KS+4KSu4KWN4KSq4KS24KWB4KSy4KWN4KSVIiwgIuCkleClgeCksuCkuOCljeCkn+CkvuCkvuCkruCljeCkquCktuClgeCksuCljeCklSIsICLgpJXgpYHgpLLgpLjgpY3gpJ/gpL7gpILgpKrgpLbgpYHgpLLgpY3gpJUiLAogICAgInN0YW1wZHV0eXBhaWQiLCAic3RhbXBkdXR5IiwKICAgICLgpKrgpILgpJzgpYDgpJXgpLDgpKPgpKvgpYDgpLgiLCAi4KSq4KSC4KSc4KWA4KSV4KSw4KSj4KS24KWB4KSy4KWN4KSVIiwKICAgICJyZWdpc3RyYXRpb25mZWVzIiwgInJlZ2lzdHJhdGlvbmZlZSIKICBdOwoKICBmb3IgKGNvbnN0IGFsaWFzIG9mIGFsaWFzZXMpIHsKICAgIGNvbnN0IHN0YXJ0ID0gY29tcGFjdC5pbmRleE9mKGFsaWFzKTsKICAgIGlmIChzdGFydCA9PT0gLTEpIGNvbnRpbnVlOwoKICAgIGNvbnN0IHZhbHVlU3RhcnQgPSBzdGFydCArIGFsaWFzLmxlbmd0aDsKICAgIGxldCB2YWx1ZUVuZCA9IGNvbXBhY3QubGVuZ3RoOwoKICAgIGZvciAoY29uc3QgbmV4dExhYmVsIG9mIGFsbExhYmVscykgewogICAgICBjb25zdCBuZXh0SW5kZXggPSBjb21wYWN0LmluZGV4T2YobmV4dExhYmVsLCB2YWx1ZVN0YXJ0KTsKICAgICAgaWYgKG5leHRJbmRleCAhPT0gLTEgJiYgbmV4dEluZGV4IDwgdmFsdWVFbmQpIHsKICAgICAgICB2YWx1ZUVuZCA9IG5leHRJbmRleDsKICAgICAgfQogICAgfQoKICAgIGNvbnN0IHNlZ21lbnQgPSBjb21wYWN0LnNsaWNlKHZhbHVlU3RhcnQsIHZhbHVlRW5kKTsKICAgIGNvbnN0IG1hdGNoID0gc2VnbWVudC5tYXRjaCgvKFxkW1xkLF17MCwxNH0oPzpcLlxkezEsMn0pPykvKTsKICAgIHJldHVybiBtYXRjaCA/IGZvcm1hdEFtb3VudChtYXRjaFsxXSkgOiAiMC4wMCI7CiAgfQoKICByZXR1cm4gIjAuMDAiOwp9CgpmdW5jdGlvbiBjb21wYWN0RmluYW5jaWFsVGV4dCh2YWx1ZSkgewogIHJldHVybiBub3JtYWxpemVUZXh0KHZhbHVlKQogICAgLnRvTG93ZXJDYXNlKCkKICAgIC5yZXBsYWNlKC9b4oK5Ojt8KClbXF17feKAk+KAlFwtX10vZywgIiIpCiAgICAucmVwbGFjZSgvXHMrL2csICIiKTsKfQoKZnVuY3Rpb24gZmlyc3RNYXRjaCh0ZXh0LCBwYXR0ZXJucykgewogIGZvciAoY29uc3QgcGF0dGVybiBvZiBwYXR0ZXJucykgewogICAgY29uc3QgbWF0Y2ggPSBTdHJpbmcodGV4dCB8fCAiIikubWF0Y2gocGF0dGVybik7CiAgICBpZiAobWF0Y2ggJiYgbWF0Y2hbMV0pIHJldHVybiBtYXRjaFsxXS50cmltKCk7CiAgfQogIHJldHVybiAiIjsKfQoKZnVuY3Rpb24gbm9ybWFsaXplVGV4dCh2YWx1ZSkgewogIHJldHVybiBTdHJpbmcodmFsdWUgfHwgIiIpCiAgICAucmVwbGFjZSgvXHUwMGEwL2csICIgIikKICAgIC5yZXBsYWNlKC9cdTIwMGJ8XHUyMDBjfFx1MjAwZHxcdWZlZmYvZywgIiIpCiAgICAucmVwbGFjZSgvW+KAk+KAlF0vZywgIi0iKQogICAgLnJlcGxhY2UoL1sgXHRdKy9nLCAiICIpCiAgICAucmVwbGFjZSgvXG57Mix9L2csICJcbiIpCiAgICAudHJpbSgpOwp9CgpmdW5jdGlvbiBub3JtYWxpemVEYXRlKHZhbHVlKSB7CiAgcmV0dXJuIHZhbHVlID8gU3RyaW5nKHZhbHVlKS5yZXBsYWNlKC8tL2csICIvIikgOiAiIjsKfQoKZnVuY3Rpb24gZm9ybWF0QW1vdW50KHZhbHVlKSB7CiAgY29uc3QgY2xlYW5lZCA9IFN0cmluZyh2YWx1ZSB8fCAiIikKICAgIC5yZXBsYWNlKC9ccysvZywgIiIpCiAgICAucmVwbGFjZSgvLC9nLCAiIikKICAgIC5yZXBsYWNlKC9bXlxkLl0vZywgIiIpOwoKICBjb25zdCBudW1iZXIgPSBOdW1iZXIoY2xlYW5lZCk7CiAgcmV0dXJuIE51bWJlci5pc0Zpbml0ZShudW1iZXIpID8gbnVtYmVyLnRvRml4ZWQoMikgOiAiMC4wMCI7Cn0KCmZ1bmN0aW9uIGVtcHR5UmVjb3JkKCkgewogIHJldHVybiB7CiAgICBmaWxlTmFtZTogIiIsCiAgICBkZWVkVHlwZTogIiIsCiAgICByZWdpc3RyeU51bWJlcjogIiIsCiAgICByZWdpc3RyYXRpb25EYXRlOiAiIiwKICAgIHRva2VuTnVtYmVyOiAiIiwKICAgIGRlZWRBbW91bnQ6ICIwLjAwIiwKICAgIGxhbmRWYWx1ZTogIjAuMDAiLAogICAgc3RhbXBEdXR5OiAiMC4wMCIsCiAgICByZWdpc3RyYXRpb25GZWVzOiAiMC4wMCIsCiAgICBzdGF0dXM6ICIiCiAgfTsKfQoKZnVuY3Rpb24gYXBwZW5kUm93KHJlY29yZCwgc2VyaWFsKSB7CiAgY29uc3Qgc3RhdHVzQ2xhc3MgPQogICAgcmVjb3JkLnN0YXR1cyA9PT0gIkNvbXBsZXRlZCIgPyAic3VjY2VzcyIgOiAid2FybmluZyI7CgogIHJlc3VsdEJvZHkuaW5zZXJ0QWRqYWNlbnRIVE1MKCJiZWZvcmVlbmQiLCBgCiAgICA8dHI+CiAgICAgIDx0ZD4ke3NlcmlhbH08L3RkPgogICAgICA8dGQ+JHtlc2NhcGVIdG1sKHJlY29yZC5kZWVkVHlwZSB8fCAiTm90IEZvdW5kIil9PC90ZD4KICAgICAgPHRkPiR7ZXNjYXBlSHRtbChyZWNvcmQucmVnaXN0cnlOdW1iZXIgfHwgIk5vdCBGb3VuZCIpfTwvdGQ+CiAgICAgIDx0ZD4ke2VzY2FwZUh0bWwocmVjb3JkLnJlZ2lzdHJhdGlvbkRhdGUgfHwgIk5vdCBGb3VuZCIpfTwvdGQ+CiAgICAgIDx0ZD4ke2VzY2FwZUh0bWwocmVjb3JkLnRva2VuTnVtYmVyIHx8ICJOb3QgRm91bmQiKX08L3RkPgogICAgICA8dGQ+JHtyZWNvcmQuZGVlZEFtb3VudH08L3RkPgogICAgICA8dGQ+JHtyZWNvcmQubGFuZFZhbHVlfTwvdGQ+CiAgICAgIDx0ZD4ke3JlY29yZC5zdGFtcER1dHl9PC90ZD4KICAgICAgPHRkPiR7cmVjb3JkLnJlZ2lzdHJhdGlvbkZlZXN9PC90ZD4KICAgICAgPHRkIGNsYXNzPSIke3N0YXR1c0NsYXNzfSI+JHtyZWNvcmQuc3RhdHVzfTwvdGQ+CiAgICA8L3RyPgogIGApOwp9CgpmdW5jdGlvbiBzZXRQcm9ncmVzcyhkb25lLCB0b3RhbCwgbWVzc2FnZSkgewogIGNvbnN0IHBlcmNlbnQgPSB0b3RhbCA/IE1hdGgucm91bmQoKGRvbmUgLyB0b3RhbCkgKiAxMDApIDogMDsKICBwcm9ncmVzc0Jhci5zdHlsZS53aWR0aCA9IHBlcmNlbnQgKyAiJSI7CiAgc3RhdHVzVGV4dC50ZXh0Q29udGVudCA9IG1lc3NhZ2U7Cn0KCmNzdkJ1dHRvbi5hZGRFdmVudExpc3RlbmVyKCJjbGljayIsICgpID0+IHsKICBpZiAoIXJlc3VsdHMubGVuZ3RoKSByZXR1cm47CgogIGNvbnN0IHJvd3MgPSBbWwogICAgIkRlZWQgVHlwZSIsICJSZWdpc3RyeSBOdW1iZXIiLCAiUmVnaXN0cmF0aW9uIERhdGUiLCAiVG9rZW4gTnVtYmVyIiwKICAgICJEZWVkIEFtb3VudCIsICJMYW5kIFZhbHVlIiwgIlN0YW1wIER1dHkiLCAiUmVnaXN0cmF0aW9uIEZlZSIKICBdLCAuLi5yZXN1bHRzLm1hcChyZWNvcmQgPT4gWwogICAgcmVjb3JkLmRlZWRUeXBlLAogICAgcmVjb3JkLnJlZ2lzdHJ5TnVtYmVyLAogICAgcmVjb3JkLnJlZ2lzdHJhdGlvbkRhdGUsCiAgICByZWNvcmQudG9rZW5OdW1iZXIsCiAgICByZWNvcmQuZGVlZEFtb3VudCwKICAgIHJlY29yZC5sYW5kVmFsdWUsCiAgICByZWNvcmQuc3RhbXBEdXR5LAogICAgcmVjb3JkLnJlZ2lzdHJhdGlvbkZlZXMKICBdKV07CgogIGNvbnN0IGNzdiA9ICJcdUZFRkYiICsgcm93cwogICAgLm1hcChyb3cgPT4gcm93Lm1hcChjc3ZDZWxsKS5qb2luKCIsIikpCiAgICAuam9pbigiXG4iKTsKCiAgY29uc3QgYmxvYiA9IG5ldyBCbG9iKFtjc3ZdLCB7dHlwZTogInRleHQvY3N2O2NoYXJzZXQ9dXRmLTgifSk7CiAgY29uc3QgdXJsID0gVVJMLmNyZWF0ZU9iamVjdFVSTChibG9iKTsKICBjb25zdCBsaW5rID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiYSIpOwogIGxpbmsuaHJlZiA9IHVybDsKICBsaW5rLmRvd25sb2FkID0gInJlZ2lzdHJ5LXBkZi1kYXRhLmNzdiI7CiAgbGluay5jbGljaygpOwogIFVSTC5yZXZva2VPYmplY3RVUkwodXJsKTsKfSk7CgpmdW5jdGlvbiBjc3ZDZWxsKHZhbHVlKSB7CiAgcmV0dXJuIGAiJHtTdHJpbmcodmFsdWUgPz8gIiIpLnJlcGxhY2UoLyIvZywgJyIiJyl9ImA7Cn0KCmZ1bmN0aW9uIGVzY2FwZUh0bWwodmFsdWUpIHsKICByZXR1cm4gU3RyaW5nKHZhbHVlID8/ICIiKQogICAgLnJlcGxhY2VBbGwoIiYiLCAiJmFtcDsiKQogICAgLnJlcGxhY2VBbGwoIjwiLCAiJmx0OyIpCiAgICAucmVwbGFjZUFsbCgiPiIsICImZ3Q7IikKICAgIC5yZXBsYWNlQWxsKCciJywgIiZxdW90OyIpCiAgICAucmVwbGFjZUFsbCgiJyIsICImIzAzOTsiKTsKfQo="></script>
+  <section class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Sr.</th>
+          <th>Deed Type</th>
+          <th>Registry No.</th>
+          <th>Registration Date</th>
+          <th>Token No.</th>
+          <th>Deed Amount</th>
+          <th>Land Value</th>
+          <th>Stamp Duty</th>
+          <th>Registration Fee</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody">
+        <tr><td colspan="10">पहले PDF चुनें</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=22"></script>
+<script>
+"use strict";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = id => document.getElementById(id);
+const fileInput = $("fileInput");
+const readButton = $("readButton");
+const csvButton = $("csvButton");
+const clearButton = $("clearButton");
+const fileList = $("fileList");
+const progressArea = $("progressArea");
+const progressBar = $("progressBar");
+const statusText = $("statusText");
+const resultBody = $("resultBody");
+const selectedCount = $("selectedCount");
+const completedCount = $("completedCount");
+const checkCount = $("checkCount");
+
+let selectedFiles = [];
+let results = [];
+
+fileInput.addEventListener("change", () => {
+  const chosen = Array.from(fileInput.files || []);
+  const files = chosen.filter(file =>
+    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+  );
+
+  if (chosen.length > 100) {
+    alert("एक बार में अधिकतम 100 PDF चुनें।");
+    fileInput.value = "";
+    return;
+  }
+
+  if (chosen.length && files.length !== chosen.length) {
+    alert("सिर्फ PDF files चुनें।");
+  }
+
+  selectedFiles = files;
+  results = [];
+  selectedCount.textContent = String(files.length);
+  completedCount.textContent = "0";
+  checkCount.textContent = "0";
+  readButton.disabled = files.length === 0;
+  csvButton.disabled = true;
+  clearButton.disabled = files.length === 0;
+  renderFiles();
+
+  resultBody.innerHTML = files.length
+    ? `<tr><td colspan="10">${files.length} PDF चुनी गई हैं। अब Read Data दबाएँ।</td></tr>`
+    : `<tr><td colspan="10">पहले PDF चुनें</td></tr>`;
+});
+
+clearButton.addEventListener("click", resetAll);
+
+function resetAll() {
+  selectedFiles = [];
+  results = [];
+  fileInput.value = "";
+  selectedCount.textContent = "0";
+  completedCount.textContent = "0";
+  checkCount.textContent = "0";
+  readButton.disabled = true;
+  csvButton.disabled = true;
+  clearButton.disabled = true;
+  fileList.innerHTML = "";
+  fileList.classList.add("hidden");
+  progressArea.classList.add("hidden");
+  progressBar.style.width = "0%";
+  resultBody.innerHTML = `<tr><td colspan="10">पहले PDF चुनें</td></tr>`;
+}
+
+function renderFiles() {
+  if (!selectedFiles.length) {
+    fileList.classList.add("hidden");
+    return;
+  }
+  fileList.classList.remove("hidden");
+  fileList.innerHTML = selectedFiles.map((file, i) =>
+    `<div class="file-item">${i + 1}. ${escapeHtml(file.name)}</div>`
+  ).join("");
+}
+
+readButton.addEventListener("click", async () => {
+  if (!selectedFiles.length) return;
+
+  results = [];
+  resultBody.innerHTML = "";
+  progressArea.classList.remove("hidden");
+  readButton.disabled = true;
+  csvButton.disabled = true;
+
+  let completed = 0;
+  let checks = 0;
+
+  for (let i = 0; i < selectedFiles.length; i++) {
+    const file = selectedFiles[i];
+    setProgress(i, selectedFiles.length,
+      `Reading ${i + 1}/${selectedFiles.length}: ${file.name}`);
+
+    try {
+      const text = await extractFirstTwoPages(file);
+      const record = parseRegistryText(text);
+      record.fileName = file.name;
+
+      const identityOkay = Boolean(
+        record.deedType &&
+        record.registryNumber &&
+        record.registrationDate &&
+        record.tokenNumber
+      );
+
+      record.status = identityOkay ? "Completed" : "Check";
+      if (identityOkay) completed++;
+      else checks++;
+
+      results.push(record);
+      appendRow(record, i + 1);
+    } catch (error) {
+      console.error(file.name, error);
+      const record = emptyRecord();
+      record.fileName = file.name;
+      record.status = "Check";
+      results.push(record);
+      checks++;
+      appendRow(record, i + 1);
+    }
+
+    completedCount.textContent = String(completed);
+    checkCount.textContent = String(checks);
+  }
+
+  setProgress(selectedFiles.length, selectedFiles.length,
+    `Completed: ${completed} | Check: ${checks}`);
+
+  readButton.disabled = false;
+  csvButton.disabled = results.length === 0;
+});
+
+async function extractFirstTwoPages(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
+  const pageCount = Math.min(2, pdf.numPages);
+  const pageTexts = [];
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+    statusText.textContent = `PDF Page ${pageNumber}/${pageCount} पढ़ रहा है...`;
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const lines = groupPdfItemsIntoLines(content.items);
+    pageTexts.push(lines.join("\n"));
+  }
+
+  return normalizeText(pageTexts.join("\n"));
+}
+
+function groupPdfItemsIntoLines(items) {
+  const usable = items
+    .filter(item => String(item.str || "").trim())
+    .map(item => ({
+      text: String(item.str || "").trim(),
+      x: Number(item.transform?.[4] || 0),
+      y: Number(item.transform?.[5] || 0)
+    }))
+    .sort((a, b) => (b.y - a.y) || (a.x - b.x));
+
+  const rows = [];
+  const tolerance = 4;
+
+  for (const item of usable) {
+    let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= tolerance);
+    if (!row) {
+      row = {y: item.y, items: []};
+      rows.push(row);
+    }
+    row.items.push(item);
+  }
+
+  return rows
+    .sort((a, b) => b.y - a.y)
+    .map(row => row.items
+      .sort((a, b) => a.x - b.x)
+      .map(item => item.text)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+    )
+    .filter(Boolean);
+}
+
+function parseRegistryText(text) {
+  const clean = normalizeText(text);
+  const compact = compactText(clean);
+  const record = emptyRecord();
+
+  record.deedType = extractDeedType(clean);
+
+  record.registryNumber =
+    extractByCompactLabel(compact, [
+      "प्रलेखक्र", "registrationno", "registrationnumber", "regno"
+    ], "integer") ||
+    firstMatch(clean, [
+      /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+      /Registration\s*Number\s*[:\-]?\s*(\d+)/i
+    ]);
+
+  record.registrationDate = normalizeDate(
+    extractByCompactLabel(compact, [
+      "पंजीकरणदिनांक", "registrationdate"
+    ], "date") ||
+    firstMatch(clean, [
+      /Registration\s*No\.?\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+      /\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+    ])
+  );
+
+  record.tokenNumber =
+    extractToken(clean) ||
+    firstMatch(clean, [/\b(PAN_[A-Z0-9_]+)\b/i]);
+
+  record.deedAmount = extractMoney(compact, [
+    "लेनदेनराशि", "transactionamount", "considerationamount", "deedamount"
+  ]);
+
+  record.landValue = extractMoney(compact, [
+    "कलेक्टरदर", "कलैक्टरदर", "landvalue", "collectorvalue", "collectorrate"
+  ]);
+
+  record.stampDuty =
+    extractMoney(compact, [
+      "कुलस्टाम्पशुल्क", "कुलस्टांपशुल्क", "stampdutypaid", "stampduty"
+    ]) ||
+    "0.00";
+
+  record.registrationFees =
+    extractMoney(compact, [
+      "पंजीकरणफीस", "पंजीकरणशुल्क", "registrationfees", "registrationfee"
+    ]) ||
+    "0.00";
+
+  return record;
+}
+
+function extractDeedType(text) {
+  const lines = text.split(/\n+/).map(x => x.trim()).filter(Boolean);
+
+  const exact = [
+    ["TRANSFER OF IMMOVABLE PROPERTY", /TRANSFER\s+OF\s+IMMOVABLE\s+PROPERTY\s+DEED/i],
+    ["POWER OF ATTORNEY", /POWER\s+OF\s+ATTORNEY\s+DEED/i],
+    ["CONVEYANCE", /CONVEYANCE\s+DEED/i],
+    ["AGREEMENT", /AGREEMENT\s+DEED/i],
+    ["TARTIMA", /TARTIMA\s+DEED/i],
+    ["TRUST", /TRUST\s+DEED/i],
+    ["SALE", /SALE\s+DEED/i],
+    ["GIFT", /GIFT\s+DEED/i],
+    ["WILL", /WILL\s+DEED/i],
+    ["LEASE", /LEASE\s+DEED/i],
+    ["ADOPTION", /ADOPTION\s+DEED/i],
+    ["RECTIFICATION", /RECTIFICATION\s+DEED/i],
+    ["CANCELLATION", /CANCELLATION\s+DEED/i],
+    ["PARTITION", /PARTITION\s+DEED/i],
+    ["RELEASE", /RELEASE\s+DEED/i]
+  ];
+
+  for (const [label, pattern] of exact) {
+    if (pattern.test(text)) return label;
+  }
+
+  for (const line of lines) {
+    const m = line.match(/^([A-Z][A-Z /&()'-]{1,80})\s+DEED$/i);
+    if (m) return m[1].replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  const purpose = firstMatch(text, [/Purpose\s*:\s*([A-Z][A-Z ]{1,60})/i]);
+  return purpose ? purpose.toUpperCase().trim() : "";
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, "")
+    .replace(/[–—]/g, "-")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+function compactText(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[₹:;|()[\]{}–—\-_,/]/g, "")
+    .replace(/\s+/g, "");
+}
+
+function extractByCompactLabel(compact, labels, kind) {
+  for (const label of labels) {
+    const index = compact.indexOf(label);
+    if (index === -1) continue;
+    const after = compact.slice(index + label.length, index + label.length + 80);
+
+    if (kind === "integer") {
+      const m = after.match(/(\d{1,10})/);
+      if (m) return m[1];
+    }
+
+    if (kind === "date") {
+      const m = after.match(/(\d{1,2})(\d{1,2})(\d{4})/);
+      if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    }
+  }
+  return "";
+}
+
+function extractToken(text) {
+  const m = String(text || "").match(/\b(PAN_[A-Z0-9_]+)\b/i);
+  return m ? m[1] : "";
+}
+
+function extractMoney(compact, labels) {
+  const boundaries = [
+    "लेनदेनराशि", "transactionamount", "considerationamount", "deedamount",
+    "कलेक्टरदर", "कलैक्टरदर", "landvalue", "collectorvalue", "collectorrate",
+    "कुलस्टाम्पशुल्क", "कुलस्टांपशुल्क", "stampdutypaid", "stampduty",
+    "पंजीकरणफीस", "पंजीकरणशुल्क", "registrationfees", "registrationfee",
+    "कुलक्रेता", "कुलदावेदार", "कुलन्यासी", "कुलप्राधिकत", "ईचालान",
+    "स्टाम्पकामूल्य", "स्टांपकामूल्य", "पेस्टिंगशुल्क"
+  ];
+
+  for (const label of labels) {
+    const start = compact.indexOf(label);
+    if (start === -1) continue;
+
+    const valueStart = start + label.length;
+    let valueEnd = Math.min(compact.length, valueStart + 100);
+
+    for (const boundary of boundaries) {
+      const next = compact.indexOf(boundary, valueStart);
+      if (next !== -1 && next < valueEnd) valueEnd = next;
+    }
+
+    const segment = compact.slice(valueStart, valueEnd);
+
+    // "रुपये" may appear immediately with no number (e.g. collector rate blank).
+    if (/^रुपये/.test(segment)) return "0.00";
+
+    const match = segment.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
+    if (!match) return "0.00";
+    return formatAmount(match[1]);
+  }
+
+  return "0.00";
+}
+
+function firstMatch(text, patterns) {
+  for (const pattern of patterns) {
+    const match = String(text || "").match(pattern);
+    if (match && match[1]) return match[1].trim();
+  }
+  return "";
+}
+
+function normalizeDate(value) {
+  if (!value) return "";
+  const s = String(value).replace(/-/g, "/");
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3]}` : s;
+}
+
+function formatAmount(value) {
+  const cleaned = String(value || "")
+    .replace(/,/g, "")
+    .replace(/[^\d.]/g, "");
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number.toFixed(2) : "0.00";
+}
+
+function emptyRecord() {
+  return {
+    fileName: "",
+    deedType: "",
+    registryNumber: "",
+    registrationDate: "",
+    tokenNumber: "",
+    deedAmount: "0.00",
+    landValue: "0.00",
+    stampDuty: "0.00",
+    registrationFees: "0.00",
+    status: ""
+  };
+}
+
+function appendRow(record, serial) {
+  const statusClass = record.status === "Completed" ? "success" : "warning";
+  resultBody.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${serial}</td>
+      <td>${escapeHtml(record.deedType || "Not Found")}</td>
+      <td>${escapeHtml(record.registryNumber || "Not Found")}</td>
+      <td>${escapeHtml(record.registrationDate || "Not Found")}</td>
+      <td>${escapeHtml(record.tokenNumber || "Not Found")}</td>
+      <td>${record.deedAmount}</td>
+      <td>${record.landValue}</td>
+      <td>${record.stampDuty}</td>
+      <td>${record.registrationFees}</td>
+      <td class="${statusClass}">${record.status}</td>
+    </tr>
+  `);
+}
+
+function setProgress(done, total, message) {
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  progressBar.style.width = percent + "%";
+  statusText.textContent = message;
+}
+
+csvButton.addEventListener("click", () => {
+  if (!results.length) return;
+
+  const rows = [[
+    "Deed Type", "Registry Number", "Registration Date", "Token Number",
+    "Deed Amount", "Land Value", "Stamp Duty", "Registration Fee"
+  ], ...results.map(r => [
+    r.deedType, r.registryNumber, r.registrationDate, r.tokenNumber,
+    r.deedAmount, r.landValue, r.stampDuty, r.registrationFees
+  ])];
+
+  const csv = "\uFEFF" + rows.map(row => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "registry-pdf-data.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+</script>
 </body>
 </html>
