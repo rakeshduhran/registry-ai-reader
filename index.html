@@ -1,112 +1,895 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Registry AI Reader</title>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
+*{
+    box-sizing:border-box;
+}
+
 body{
     margin:0;
     font-family:Arial,sans-serif;
-    background:#f4f6f8;
+    background:#f3f6f4;
+    color:#202124;
 }
 
-.header{
-    background:#0b7a3d;
+header{
+    background:#087c3e;
     color:white;
     text-align:center;
-    padding:18px;
-    font-size:28px;
+    padding:16px;
+    font-size:24px;
     font-weight:bold;
 }
 
 .container{
-    width:90%;
-    max-width:900px;
-    margin:20px auto;
+    width:94%;
+    max-width:1200px;
+    margin:18px auto;
 }
 
 .upload-box{
-    border:3px dashed #0b7a3d;
-    border-radius:12px;
     background:white;
-    padding:40px;
+    border:2px dashed #087c3e;
+    border-radius:14px;
     text-align:center;
+    padding:28px 15px;
 }
 
-input[type=file]{
+.upload-box h2{
+    margin:0 0 10px;
+}
+
+.upload-box p{
+    color:#666;
+    font-size:14px;
+}
+
+#fileInput{
     display:none;
 }
 
-.btn{
-    background:#0b7a3d;
-    color:white;
-    padding:12px 25px;
-    border-radius:8px;
-    cursor:pointer;
-    display:inline-block;
+.buttons{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:10px;
     margin-top:15px;
+}
+
+button,.select-button{
+    border:none;
+    border-radius:8px;
+    padding:12px 18px;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.select-button,.green-button{
+    background:#087c3e;
+    color:white;
+}
+
+.gray-button{
+    background:#e7eee9;
+    color:#17633a;
+}
+
+.red-button{
+    background:#fbe8e8;
+    color:#a21c1c;
+}
+
+button:disabled{
+    opacity:.45;
+}
+
+#fileList{
+    display:none;
+    background:white;
+    border-radius:10px;
+    padding:12px;
+    margin-top:14px;
+    max-height:180px;
+    overflow:auto;
+}
+
+.file-item{
+    border-bottom:1px solid #eee;
+    padding:8px;
+    font-size:13px;
+    overflow-wrap:anywhere;
+}
+
+.summary{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-top:14px;
+}
+
+.summary-box{
+    background:white;
+    border-radius:10px;
+    text-align:center;
+    padding:11px;
+}
+
+.summary-box strong{
+    display:block;
+    color:#087c3e;
+    font-size:22px;
+}
+
+#progressArea{
+    display:none;
+    background:white;
+    padding:12px;
+    border-radius:10px;
+    margin-top:14px;
+}
+
+.progress-track{
+    height:14px;
+    border-radius:20px;
+    background:#e4e9e6;
+    overflow:hidden;
+}
+
+#progressBar{
+    width:0%;
+    height:100%;
+    background:#087c3e;
+}
+
+#statusText{
+    margin-top:8px;
+    text-align:center;
+    font-size:14px;
+}
+
+.table-wrap{
+    background:white;
+    overflow-x:auto;
+    margin-top:15px;
+    border-radius:10px;
 }
 
 table{
     width:100%;
+    min-width:1150px;
     border-collapse:collapse;
-    margin-top:20px;
-    background:white;
 }
 
 th{
-    background:#0b7a3d;
+    background:#087c3e;
     color:white;
-    padding:10px;
+    padding:10px 7px;
+    font-size:13px;
+    white-space:nowrap;
 }
 
 td{
     border:1px solid #ddd;
-    padding:8px;
+    padding:9px 7px;
     text-align:center;
+    font-size:13px;
+}
+
+.file-name{
+    text-align:left;
+    max-width:190px;
+    overflow-wrap:anywhere;
+}
+
+.success{
+    color:green;
+    font-weight:bold;
+}
+
+.error{
+    color:red;
+    font-weight:bold;
+}
+
+@media(max-width:600px){
+    header{
+        font-size:20px;
+    }
+
+    button,.select-button{
+        width:100%;
+    }
+
+    .summary-box{
+        font-size:12px;
+        padding:8px 3px;
+    }
 }
 </style>
-
 </head>
 
 <body>
 
-<div class="header">
-Registry AI Reader
-</div>
+<header>Registry AI Reader</header>
 
 <div class="container">
 
 <div class="upload-box">
 
-<h2>Upload Registry PDF / Image</h2>
+<h2>Registry PDF / Image Upload</h2>
 
-<p>
-Supports PDF, JPG, PNG
-</p>
+<p>PDF, JPG, JPEG और PNG — अधिकतम 100 Files</p>
 
-<label class="btn">
+<div class="buttons">
 
-Select Files
-
-<input type="file" multiple>
-
+<label class="select-button" for="fileInput">
+📁 Select Files
 </label>
+
+<input
+id="fileInput"
+type="file"
+accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+multiple>
+
+<button id="processButton" class="green-button" disabled>
+▶ Start Reading
+</button>
+
+<button id="csvButton" class="gray-button" disabled>
+⬇ Download CSV
+</button>
+
+<button id="clearButton" class="red-button" disabled>
+🗑 Clear
+</button>
+
+</div>
+</div>
+
+<div class="summary">
+
+<div class="summary-box">
+Selected
+<strong id="selectedCount">0</strong>
+</div>
+
+<div class="summary-box">
+Completed
+<strong id="completedCount">0</strong>
+</div>
+
+<div class="summary-box">
+Failed
+<strong id="failedCount">0</strong>
+</div>
 
 </div>
 
+<div id="fileList"></div>
+
+<div id="progressArea">
+
+<div class="progress-track">
+<div id="progressBar"></div>
+</div>
+
+<div id="statusText">Ready</div>
+
+</div>
+
+<div class="table-wrap">
+
 <table>
 
+<thead>
 <tr>
-
+<th>Sr.</th>
+<th>File Name</th>
 <th>Deed Type</th>
+<th>Registry No.</th>
+<th>Registration Date</th>
+<th>Token No.</th>
+<th>Deed Amount</th>
+<th>Collector Rate</th>
+<th>Stamp Duty</th>
+<th>Registration Fees</th>
+<th>Status</th>
+</tr>
+</thead>
 
-<th>Registry No</th>
+<tbody id="resultBody">
 
-<th>Date</th>
+<tr>
+<td colspan="11">पहले PDF या Image Select करें</td>
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+</div>
+
+<script>
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const fileInput = document.getElementById("fileInput");
+const processButton = document.getElementById("processButton");
+const csvButton = document.getElementById("csvButton");
+const clearButton = document.getElementById("clearButton");
+
+const fileList = document.getElementById("fileList");
+const resultBody = document.getElementById("resultBody");
+
+const selectedCount = document.getElementById("selectedCount");
+const completedCount = document.getElementById("completedCount");
+const failedCount = document.getElementById("failedCount");
+
+const progressArea = document.getElementById("progressArea");
+const progressBar = document.getElementById("progressBar");
+const statusText = document.getElementById("statusText");
+
+let selectedFiles = [];
+let finalResults = [];
+
+fileInput.addEventListener("change",function(){
+
+    const files = Array.from(fileInput.files || []);
+
+    if(files.length > 100){
+        alert("एक बार में अधिकतम 100 Files Select करें।");
+        fileInput.value = "";
+        return;
+    }
+
+    selectedFiles = files;
+
+    selectedCount.textContent = selectedFiles.length;
+    completedCount.textContent = "0";
+    failedCount.textContent = "0";
+
+    processButton.disabled = selectedFiles.length === 0;
+    clearButton.disabled = selectedFiles.length === 0;
+    csvButton.disabled = true;
+
+    showFiles();
+
+    if(selectedFiles.length){
+        resultBody.innerHTML =
+        `<tr><td colspan="11">${selectedFiles.length} Files Select हो गई हैं। अब Start Reading दबाएँ।</td></tr>`;
+    }
+});
+
+function showFiles(){
+
+    if(!selectedFiles.length){
+        fileList.style.display = "none";
+        fileList.innerHTML = "";
+        return;
+    }
+
+    fileList.style.display = "block";
+
+    fileList.innerHTML = selectedFiles.map(function(file,index){
+
+        return `
+        <div class="file-item">
+        ${index + 1}. ${escapeHtml(file.name)}
+        </div>
+        `;
+
+    }).join("");
+}
+
+clearButton.addEventListener("click",function(){
+
+    selectedFiles = [];
+    finalResults = [];
+
+    fileInput.value = "";
+
+    selectedCount.textContent = "0";
+    completedCount.textContent = "0";
+    failedCount.textContent = "0";
+
+    processButton.disabled = true;
+    csvButton.disabled = true;
+    clearButton.disabled = true;
+
+    progressArea.style.display = "none";
+
+    showFiles();
+
+    resultBody.innerHTML =
+    `<tr><td colspan="11">पहले PDF या Image Select करें</td></tr>`;
+});
+
+processButton.addEventListener("click",async function(){
+
+    if(!selectedFiles.length){
+        return;
+    }
+
+    processButton.disabled = true;
+    csvButton.disabled = true;
+
+    finalResults = [];
+    resultBody.innerHTML = "";
+
+    progressArea.style.display = "block";
+
+    let completed = 0;
+    let failed = 0;
+
+    for(let i = 0; i < selectedFiles.length; i++){
+
+        const file = selectedFiles[i];
+
+        setProgress(
+            i,
+            selectedFiles.length,
+            `Reading ${i + 1}/${selectedFiles.length}: ${file.name}`
+        );
+
+        let record;
+
+        try{
+
+            const text = await readFile(file);
+
+            record = extractData(text);
+
+            record.fileName = file.name;
+
+            if(hasData(record)){
+                record.status = "Completed";
+                completed++;
+            }else{
+                record.status = "Data Not Found";
+                failed++;
+            }
+
+        }catch(error){
+
+            record = emptyRecord();
+
+            record.fileName = file.name;
+            record.status = "Error";
+
+            failed++;
+        }
+
+        finalResults.push(record);
+
+        addTableRow(record,i + 1);
+
+        completedCount.textContent = completed;
+        failedCount.textContent = failed;
+    }
+
+    setProgress(
+        selectedFiles.length,
+        selectedFiles.length,
+        `Completed: ${completed} | Failed: ${failed}`
+    );
+
+    processButton.disabled = false;
+    csvButton.disabled = finalResults.length === 0;
+});
+
+async function readFile(file){
+
+    const name = file.name.toLowerCase();
+
+    if(file.type === "application/pdf" || name.endsWith(".pdf")){
+        return await readPdf(file);
+    }
+
+    if(
+        file.type.startsWith("image/") ||
+        name.endsWith(".jpg") ||
+        name.endsWith(".jpeg") ||
+        name.endsWith(".png")
+    ){
+        return await readImage(file);
+    }
+
+    throw new Error("Unsupported File");
+}
+
+async function readPdf(file){
+
+    const arrayBuffer = await file.arrayBuffer();
+
+    const pdf = await pdfjsLib.getDocument({
+        data:arrayBuffer
+    }).promise;
+
+    let fullText = "";
+
+    const pagesToRead = Math.min(pdf.numPages,2);
+
+    for(let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++){
+
+        statusText.textContent =
+        `PDF Page ${pageNumber}/${pagesToRead} पढ़ रहा है...`;
+
+        const page = await pdf.getPage(pageNumber);
+
+        const textContent = await page.getTextContent();
+
+        fullText += " " +
+        textContent.items.map(item => item.str).join(" ");
+    }
+
+    /*
+    अगर PDF Scan है और Text नहीं मिला,
+    तो पहले दो पेज का OCR चलेगा।
+    */
+
+    if(normalizeText(fullText).length < 60){
+
+        fullText = "";
+
+        for(let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++){
+
+            statusText.textContent =
+            `Scanned PDF Page ${pageNumber} OCR चल रहा है...`;
+
+            const page = await pdf.getPage(pageNumber);
+
+            const viewport = page.getViewport({
+                scale:1.5
+            });
+
+            const canvas = document.createElement("canvas");
+
+            const context = canvas.getContext("2d");
+
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({
+                canvasContext:context,
+                viewport:viewport
+            }).promise;
+
+            fullText += " " + await runOcr(canvas);
+        }
+    }
+
+    return fullText;
+}
+
+async function readImage(file){
+
+    statusText.textContent = "Image OCR चल रहा है...";
+
+    return await runOcr(file);
+}
+
+async function runOcr(source){
+
+    const result = await Tesseract.recognize(
+        source,
+        "eng",
+        {
+            logger:function(message){
+
+                if(
+                    message.status === "recognizing text" &&
+                    typeof message.progress === "number"
+                ){
+                    statusText.textContent =
+                    `OCR ${Math.round(message.progress * 100)}%`;
+                }
+            }
+        }
+    );
+
+    return result.data.text || "";
+}
+
+function extractData(originalText){
+
+    const text = normalizeText(originalText);
+
+    return {
+
+        fileName:"",
+
+        deedType:firstMatch(text,[
+            /\b(SALE\s+DEED)\b/i,
+            /\b(GIFT\s+DEED)\b/i,
+            /\b(LEASE\s+DEED)\b/i,
+            /\b(TRANSFER\s+DEED)\b/i,
+            /\b(CONVEYANCE)\b/i,
+            /\b(AGREEMENT)\b/i,
+            /\b(PARTITION)\b/i,
+            /\b(RE-?MORTGAGE)\b/i,
+            /Purpose\s*[:\-]\s*([A-Z ]{3,30})/i
+        ]),
+
+        registryNumber:cleanNumber(firstMatch(text,[
+            /प्रलेख\s*क्र\.?\s*[:\-]?\s*(\d+)/i,
+            /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+            /Registration\s*Number\s*[:\-]?\s*(\d+)/i
+        ])),
+
+        registrationDate:cleanDate(firstMatch(text,[
+            /पंजीकरण\s*दिनांक\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+            /Registration\s*No\.?\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+            /Registration\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+        ])),
+
+        tokenNumber:firstMatch(text,[
+            /Token\s*(?:No\.?)?\s*[:\-]\s*([A-Z0-9_]+)/i,
+            /\b(PAN_PAN_PAN_[A-Z0-9]+)\b/i
+        ]),
+
+        deedAmount:cleanAmount(firstMatch(text,[
+            /लेन[\s\-]*देन\s*राशि\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /Transaction\s*Amount\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /Consideration\s*(?:Amount|Value)?\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /Deed\s*Amount\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i
+        ])),
+
+        collectorRate:cleanAmount(firstMatch(text,[
+            /कलेक्टर\s*दर\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /Collector\s*Rate\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i
+        ])),
+
+        stampDuty:cleanAmount(firstMatch(text,[
+            /Stamp\s*Duty\s*Paid\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /कुल\s*स्टाम्प\s*शुल्क\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /Stamp\s*Duty\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i
+        ])),
+
+        registrationFees:cleanAmount(firstMatch(text,[
+            /Registration\s*Fees?\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+            /पंजीकरण\s*फीस\s*[:\-]?\s*(?:₹)?\s*([\d,]+(?:\.\d{1,2})?)/i
+        ])),
+
+        status:""
+    };
+}
+
+function normalizeText(text){
+
+    return String(text || "")
+    .replace(/\u00a0/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function firstMatch(text,patterns){
+
+    for(const pattern of patterns){
+
+        const match = text.match(pattern);
+
+        if(match && match[1]){
+            return match[1].trim();
+        }
+    }
+
+    return "";
+}
+
+function cleanNumber(value){
+
+    return String(value || "")
+    .replace(/[^\d]/g,"");
+}
+
+function cleanAmount(value){
+
+    const cleaned = String(value || "")
+    .replace(/,/g,"")
+    .replace(/[^\d.]/g,"");
+
+    if(!cleaned){
+        return "";
+    }
+
+    const number = Number(cleaned);
+
+    if(!Number.isFinite(number)){
+        return "";
+    }
+
+    return number.toFixed(2);
+}
+
+function cleanDate(value){
+
+    if(!value){
+        return "";
+    }
+
+    return value.replace(/-/g,"/");
+}
+
+function hasData(record){
+
+    return Boolean(
+        record.registryNumber ||
+        record.tokenNumber ||
+        record.deedType ||
+        record.stampDuty ||
+        record.registrationFees
+    );
+}
+
+function emptyRecord(){
+
+    return {
+        fileName:"",
+        deedType:"",
+        registryNumber:"",
+        registrationDate:"",
+        tokenNumber:"",
+        deedAmount:"",
+        collectorRate:"",
+        stampDuty:"",
+        registrationFees:"",
+        status:""
+    };
+}
+
+function addTableRow(record,serial){
+
+    const statusClass =
+    record.status === "Completed"
+    ? "success"
+    : "error";
+
+    resultBody.insertAdjacentHTML("beforeend",`
+
+    <tr>
+
+    <td>${serial}</td>
+
+    <td class="file-name">
+    ${escapeHtml(record.fileName)}
+    </td>
+
+    <td>${escapeHtml(record.deedType || "Not Found")}</td>
+
+    <td>${escapeHtml(record.registryNumber || "Not Found")}</td>
+
+    <td>${escapeHtml(record.registrationDate || "Not Found")}</td>
+
+    <td>${escapeHtml(record.tokenNumber || "Not Found")}</td>
+
+    <td>${escapeHtml(record.deedAmount || "Not Found")}</td>
+
+    <td>${escapeHtml(record.collectorRate || "Not Found")}</td>
+
+    <td>${escapeHtml(record.stampDuty || "Not Found")}</td>
+
+    <td>${escapeHtml(record.registrationFees || "Not Found")}</td>
+
+    <td class="${statusClass}">
+    ${escapeHtml(record.status)}
+    </td>
+
+    </tr>
+
+    `);
+}
+
+function setProgress(done,total,message){
+
+    const percentage =
+    total ? Math.round((done / total) * 100) : 0;
+
+    progressBar.style.width =
+    percentage + "%";
+
+    statusText.textContent = message;
+}
+
+csvButton.addEventListener("click",function(){
+
+    if(!finalResults.length){
+        return;
+    }
+
+    const rows = [
+
+        [
+            "File Name",
+            "Deed Type",
+            "Registry Number",
+            "Registration Date",
+            "Token Number",
+            "Deed Amount",
+            "Collector Rate",
+            "Stamp Duty",
+            "Registration Fees",
+            "Status"
+        ],
+
+        ...finalResults.map(record => [
+
+            record.fileName,
+            record.deedType,
+            record.registryNumber,
+            record.registrationDate,
+            record.tokenNumber,
+            record.deedAmount,
+            record.collectorRate,
+            record.stampDuty,
+            record.registrationFees,
+            record.status
+
+        ])
+    ];
+
+    const csv =
+    "\uFEFF" +
+    rows.map(row =>
+        row.map(csvCell).join(",")
+    ).join("\n");
+
+    const blob = new Blob(
+        [csv],
+        {
+            type:"text/csv;charset=utf-8"
+        }
+    );
+
+    const url =
+    URL.createObjectURL(blob);
+
+    const link =
+    document.createElement("a");
+
+    link.href = url;
+    link.download = "registry-data.csv";
+
+    link.click();
+
+    URL.revokeObjectURL(url);
+});
+
+function csvCell(value){
+
+    const text =
+    String(value || "")
+    .replace(/"/g,'""');
+
+    return `"${text}"`;
+}
+
+function escapeHtml(value){
+
+    return String(value || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+</script>
+
+</body>
+</html><th>Date</th>
 
 <th>Token No</th>
 
