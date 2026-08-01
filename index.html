@@ -46,7 +46,7 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v2.2</span></header>
+<header>PDF Reader <span class="version">v3.1</span></header>
 
 <main class="container">
   <section class="upload-card">
@@ -98,7 +98,7 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
   </section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=22"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=31"></script>
 <script>
 "use strict";
 
@@ -290,6 +290,8 @@ function groupPdfItemsIntoLines(items) {
     .filter(Boolean);
 }
 
+
+
 function parseRegistryText(text) {
   const clean = normalizeText(text);
   const compact = compactText(clean);
@@ -303,7 +305,8 @@ function parseRegistryText(text) {
     ], "integer") ||
     firstMatch(clean, [
       /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
-      /Registration\s*Number\s*[:\-]?\s*(\d+)/i
+      /Registration\s*Number\s*[:\-]?\s*(\d+)/i,
+      /Reg(?:istration)?\s*No\.?\s*[:\-]?\s*(\d+)/i
     ]);
 
   record.registrationDate = normalizeDate(
@@ -311,8 +314,9 @@ function parseRegistryText(text) {
       "पंजीकरणदिनांक", "registrationdate"
     ], "date") ||
     firstMatch(clean, [
-      /Registration\s*No\.?\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
-      /\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+      /Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,50}?Date\s*[:\-]?\s*(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/i,
+      /\bDate\s*[:\-]?\s*(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/i,
+      /(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/
     ])
   );
 
@@ -331,16 +335,95 @@ function parseRegistryText(text) {
   record.stampDuty =
     extractMoney(compact, [
       "कुलस्टाम्पशुल्क", "कुलस्टांपशुल्क", "stampdutypaid", "stampduty"
-    ]) ||
-    "0.00";
+    ]) || "0.00";
 
   record.registrationFees =
     extractMoney(compact, [
       "पंजीकरणफीस", "पंजीकरणशुल्क", "registrationfees", "registrationfee"
-    ]) ||
-    "0.00";
+    ]) || "0.00";
+
+  // If Hindi copy-paste damages only the Deal Amount words,
+  // infer it from the ordered financial values:
+  // Deal Amount -> Land Value -> Stamp Duty.
+  if (record.deedAmount === "0.00") {
+    record.deedAmount = inferDeedAmountFromKnownValues(
+      clean,
+      record.landValue,
+      record.stampDuty,
+      record.registrationFees
+    );
+  }
 
   return record;
+}
+
+function inferDeedAmountFromKnownValues(text, landValue, stampDuty, registrationFee) {
+  const land = Number(landValue || 0);
+  const stamp = Number(stampDuty || 0);
+  const fee = Number(registrationFee || 0);
+
+  const values = decimalAmountsFlexible(text).map(formatAmount);
+  const nums = values.map(Number);
+  let best = null;
+
+  // Main case: [Deal Amount, Land Value, Stamp Duty].
+  for (let i = 0; i + 2 < nums.length; i++) {
+    const deal = nums[i];
+    const landCandidate = nums[i + 1];
+    const stampCandidate = nums[i + 2];
+    let score = 0;
+
+    if (nearlyEqual(landCandidate, land)) score += 100;
+    if (nearlyEqual(stampCandidate, stamp)) score += 100;
+
+    // Reject common stamp-certificate values being mistaken for deal amount.
+    if (nearlyEqual(deal, fee)) score -= 50;
+    if (deal === 101) score -= 30;
+
+    if (deal >= landCandidate || deal === 0) score += 10;
+
+    if (!best || score > best.score) {
+      best = {score, value: values[i]};
+    }
+  }
+
+  if (best && best.score >= 180) return best.value;
+
+  // Blank collector value case: [Deal Amount, Stamp Duty].
+  if (land === 0) {
+    let bestPair = null;
+    for (let i = 0; i + 1 < nums.length; i++) {
+      const deal = nums[i];
+      const stampCandidate = nums[i + 1];
+      let score = 0;
+
+      if (nearlyEqual(stampCandidate, stamp)) score += 100;
+      if (nearlyEqual(deal, fee)) score -= 50;
+      if (deal === 101) score -= 30;
+      if (deal >= stampCandidate || deal === 0) score += 10;
+
+      if (!bestPair || score > bestPair.score) {
+        bestPair = {score, value: values[i]};
+      }
+    }
+    if (bestPair && bestPair.score >= 90) return bestPair.value;
+  }
+
+  return "0.00";
+}
+
+function decimalAmountsFlexible(text) {
+  const matches = String(text || "").match(
+    /(?<![\d/])\d[\d,]{0,14}(?:\s*\.\s*\d{1,2})(?!\d)/g
+  ) || [];
+
+  return matches.map(value =>
+    value.replace(/\s+/g, "").replace(/,/g, "")
+  );
+}
+
+function nearlyEqual(a, b) {
+  return Math.abs(Number(a || 0) - Number(b || 0)) < 0.005;
 }
 
 function extractDeedType(text) {
