@@ -5,496 +5,344 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const $ = id => document.getElementById(id);
 const fileInput = $("fileInput");
-const processButton = $("processButton");
+const readButton = $("readButton");
 const csvButton = $("csvButton");
 const clearButton = $("clearButton");
 const fileList = $("fileList");
 const resultBody = $("resultBody");
-const selectedCount = $("selectedCount");
-const completedCount = $("completedCount");
-const failedCount = $("failedCount");
 const progressArea = $("progressArea");
 const progressBar = $("progressBar");
 const statusText = $("statusText");
+const selectedCount = $("selectedCount");
+const completedCount = $("completedCount");
+const failedCount = $("failedCount");
 
 let selectedFiles = [];
-let finalResults = [];
+let results = [];
+
+
 
 fileInput.addEventListener("change", () => {
-  const files = Array.from(fileInput.files || []);
-  if (files.length > 100) {
+  selectedFiles = Array.from(fileInput.files || []);
+  if (selectedFiles.length > 100) {
     alert("एक बार में अधिकतम 100 Files Select करें।");
+    selectedFiles = [];
     fileInput.value = "";
-    return;
   }
 
-  selectedFiles = files;
-  finalResults = [];
-  selectedCount.textContent = String(files.length);
+  results = [];
+  selectedCount.textContent = selectedFiles.length;
   completedCount.textContent = "0";
   failedCount.textContent = "0";
-  processButton.disabled = files.length === 0;
-  clearButton.disabled = files.length === 0;
-  csvButton.disabled = true;
-  renderFileList();
 
-  resultBody.innerHTML = files.length
-    ? `<tr><td colspan="11">${files.length} Files Select हो गई हैं। अब Start Reading दबाएँ।</td></tr>`
-    : `<tr><td colspan="11">पहले PDF या Image Select करें</td></tr>`;
+  readButton.disabled = selectedFiles.length === 0;
+  csvButton.disabled = true;
+  clearButton.disabled = selectedFiles.length === 0;
+
+  renderFileList();
+  resultBody.innerHTML = selectedFiles.length
+    ? `<tr><td colspan="11">${selectedFiles.length} Files Select हो गई हैं। Read Data दबाएँ।</td></tr>`
+    : `<tr><td colspan="11">पहले PDF या Images Select करें</td></tr>`;
 });
 
-clearButton.addEventListener("click", resetAll);
+clearButton.addEventListener("click", clearEverything);
 
-function resetAll() {
+function clearEverything() {
   selectedFiles = [];
-  finalResults = [];
+  results = [];
   fileInput.value = "";
   selectedCount.textContent = "0";
   completedCount.textContent = "0";
   failedCount.textContent = "0";
-  processButton.disabled = true;
+  readButton.disabled = true;
   csvButton.disabled = true;
   clearButton.disabled = true;
-  progressArea.style.display = "none";
+  progressArea.classList.add("hidden");
   progressBar.style.width = "0%";
-  renderFileList();
+  fileList.classList.add("hidden");
+  fileList.innerHTML = "";
   resultBody.innerHTML =
-    `<tr><td colspan="11">पहले PDF या Image Select करें</td></tr>`;
+    `<tr><td colspan="11">पहले PDF या Images Select करें</td></tr>`;
 }
 
 function renderFileList() {
   if (!selectedFiles.length) {
-    fileList.style.display = "none";
-    fileList.innerHTML = "";
+    fileList.classList.add("hidden");
     return;
   }
-  fileList.style.display = "block";
+  fileList.classList.remove("hidden");
   fileList.innerHTML = selectedFiles.map((file, i) =>
     `<div class="file-item">${i + 1}. ${escapeHtml(file.name)}</div>`
   ).join("");
 }
 
+function isPdf(file) {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
 
-processButton.addEventListener("click", async () => {
-  if (!selectedFiles.length) return;
+function isImage(file) {
+  const name = file.name.toLowerCase();
+  return file.type.startsWith("image/") ||
+    name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png");
+}
 
-  processButton.disabled = true;
-  csvButton.disabled = true;
-  finalResults = [];
+function buildJobs(files) {
+  const jobs = [];
+  let i = 0;
+
+  while (i < files.length) {
+    if (isPdf(files[i])) {
+      jobs.push({type: "pdf", files: [files[i]], name: files[i].name});
+      i++;
+      continue;
+    }
+
+    if (isImage(files[i])) {
+      if (files[i + 1] && isImage(files[i + 1])) {
+        jobs.push({
+          type: "images",
+          files: [files[i], files[i + 1]],
+          name: files[i].name + " + " + files[i + 1].name
+        });
+        i += 2;
+      } else {
+        jobs.push({type: "image", files: [files[i]], name: files[i].name});
+        i++;
+      }
+      continue;
+    }
+
+    jobs.push({type: "unsupported", files: [files[i]], name: files[i].name});
+    i++;
+  }
+
+  return jobs;
+}
+
+readButton.addEventListener("click", async () => {
+  const jobs = buildJobs(selectedFiles);
+  if (!jobs.length) return;
+
+  results = [];
   resultBody.innerHTML = "";
-  progressArea.style.display = "block";
+  progressArea.classList.remove("hidden");
+  readButton.disabled = true;
 
-  const workItems = buildWorkItems(selectedFiles);
   let completed = 0;
   let failed = 0;
 
-  for (let i = 0; i < workItems.length; i++) {
-    const item = workItems[i];
-
-    setProgress(i, workItems.length,
-      `Reading ${i + 1}/${workItems.length}: ${item.displayName}`);
-
-    let record;
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i];
+    setProgress(i, jobs.length, `Reading ${i + 1}/${jobs.length}: ${job.name}`);
 
     try {
-      record = await readWorkItem(item);
-      record.fileName = item.displayName;
-
-      if (record.registryNumber || record.tokenNumber) {
-        record.status = record.warning ? "Check" : "Completed";
-        completed++;
-      } else {
-        record.status = "Data Not Found";
-        failed++;
-      }
+      const record = await readJob(job);
+      record.fileName = job.name;
+      record.status = (record.registryNumber || record.tokenNumber)
+        ? "Completed" : "Check";
+      if (record.status === "Completed") completed++;
+      else failed++;
+      results.push(record);
+      addRow(record, results.length);
     } catch (error) {
-      console.error(item.displayName, error);
-      record = emptyRecord();
-      record.fileName = item.displayName;
+      console.error(error);
+      const record = emptyRecord();
+      record.fileName = job.name;
       record.status = "Error";
+      results.push(record);
       failed++;
+      addRow(record, results.length);
     }
 
-    finalResults.push(record);
-    addTableRow(record, i + 1);
-
-    completedCount.textContent = String(completed);
-    failedCount.textContent = String(failed);
+    completedCount.textContent = completed;
+    failedCount.textContent = failed;
   }
 
-  setProgress(workItems.length, workItems.length,
+  setProgress(jobs.length, jobs.length,
     `Completed: ${completed} | Failed: ${failed}`);
 
-  processButton.disabled = false;
-  csvButton.disabled = finalResults.length === 0;
+  readButton.disabled = false;
+  csvButton.disabled = results.length === 0;
 });
 
-async function readAndExtract(file) {
-  const name = file.name.toLowerCase();
-
-  if (file.type === "application/pdf" || name.endsWith(".pdf")) {
-    return extractPdfRecord(await readPdfStructured(file));
+async function readJob(job) {
+  if (job.type === "pdf") {
+    return extractPdfRecord(await readPdf(job.files[0]));
   }
 
-  if (file.type.startsWith("image/") ||
-      name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png")) {
-    statusText.textContent = "Image OCR चल रहा है...";
-    return extractOcrRecord(await runOcr(file));
+  if (job.type === "images") {
+    const first = extractImageRecord(await ocrImage(job.files[0], "Page 1"));
+    const second = extractImageRecord(await ocrImage(job.files[1], "Page 2"));
+    return mergeRecords(first, second);
   }
 
-  throw new Error("Unsupported file type");
+  if (job.type === "image") {
+    const record = extractImageRecord(await ocrImage(job.files[0], "Image"));
+    record.status = "Check";
+    return record;
+  }
+
+  throw new Error("Unsupported file");
 }
 
-async function readPdfStructured(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-  const pagesToRead = Math.min(pdf.numPages, 2);
-  const pages = [];
-  let fullText = "";
+async function readPdf(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
+  const pagesToRead = Math.min(2, pdf.numPages);
+  let text = "";
 
   for (let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++) {
     statusText.textContent = `PDF Page ${pageNumber}/${pagesToRead} पढ़ रहा है...`;
-
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    const items = content.items
-      .filter(item => String(item.str || "").trim())
-      .map(item => ({
-        text: normalizeText(item.str),
-        x: Number(item.transform?.[4] || 0),
-        y: Number(item.transform?.[5] || 0)
-      }));
-
-    const rows = groupIntoRows(items, pageNumber);
-    pages.push({pageNumber, rows});
-    fullText += " " + rows.map(row => row.text).join(" ");
+    text += " " + content.items.map(item => String(item.str || "")).join(" ");
   }
 
-  if (normalizeText(fullText).length < 60) {
-    fullText = "";
-    pages.length = 0;
-
-    for (let pageNumber = 1; pageNumber <= pagesToRead; pageNumber++) {
-      statusText.textContent =
-        `Scanned PDF Page ${pageNumber} OCR चल रहा है...`;
-
-      const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({scale: 1.7});
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-
-      await page.render({canvasContext: context, viewport}).promise;
-      const text = normalizeText(await runOcr(canvas));
-      pages.push({
-        pageNumber,
-        rows: text.split(/\n+/).map((line, index) => ({
-          page: pageNumber,
-          y: 10000 - index,
-          text: normalizeText(line)
-        })).filter(row => row.text)
-      });
-      fullText += " " + text;
-    }
-  }
-
-  return {
-    text: normalizeText(fullText),
-    rows: pages.flatMap(page => page.rows)
-  };
+  return normalize(text);
 }
 
-function groupIntoRows(items, pageNumber) {
-  const tolerance = 3.8;
-  const groups = [];
-  const sorted = [...items].sort((a, b) => (b.y - a.y) || (a.x - b.x));
+async function ocrImage(file, label) {
+  statusText.textContent = `${label} OCR चल रहा है...`;
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(2, 1900 / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d", {willReadFrequently: true});
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-  for (const item of sorted) {
-    let group = groups.find(row => Math.abs(row.y - item.y) <= tolerance);
-    if (!group) {
-      group = {page: pageNumber, y: item.y, items: []};
-      groups.push(group);
-    }
-    group.items.push(item);
-    group.y = group.items.reduce((sum, value) => sum + value.y, 0) /
-      group.items.length;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(.299 * data[i] + .587 * data[i + 1] + .114 * data[i + 2]);
+    const value = gray < 155 ? Math.max(0, gray - 25) : Math.min(255, gray + 15);
+    data[i] = value;
+    data[i + 1] = value;
+    data[i + 2] = value;
   }
+  ctx.putImageData(imageData, 0, 0);
 
-  return groups.map(group => ({
-    page: group.page,
-    y: group.y,
-    text: group.items
-      .sort((a, b) => a.x - b.x)
-      .map(value => value.text)
-      .join(" ")
-  })).sort((a, b) => (a.page - b.page) || (b.y - a.y));
-}
-
-async function runOcr(source) {
-  const result = await Tesseract.recognize(source, "eng", {
+  const result = await Tesseract.recognize(canvas, "eng", {
     logger(message) {
-      if (message.status === "recognizing text" &&
-          typeof message.progress === "number") {
-        statusText.textContent = `OCR ${Math.round(message.progress * 100)}%`;
+      if (message.status === "recognizing text" && typeof message.progress === "number") {
+        statusText.textContent = `${label} OCR ${Math.round(message.progress * 100)}%`;
       }
     }
   });
-  return result.data.text || "";
+
+  return normalize(result.data.text || "");
 }
 
-function extractPdfRecord(data) {
+function extractPdfRecord(text) {
   const record = emptyRecord();
-  const allText = data.text;
-  const rows = data.rows;
-
-  record.deedType = extractDeedType(allText);
-
-  record.registryNumber = cleanInteger(firstMatch(allText, [
+  record.deedType = extractDeedType(text);
+  record.registryNumber = digits(firstMatch(text, [
     /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
-    /Registration\s*Number\s*[:\-]?\s*(\d+)/i,
     /प्रलेख\s*क्र\.?\s*[:\-]?\s*(\d+)/i
   ]));
-
-  record.registrationDate = cleanDate(firstMatch(allText, [
+  record.registrationDate = dateValue(firstMatch(text, [
     /Registration\s*No\.?\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
-    /Registration\s*Number\s*[:\-]?\s*\d+\s*Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
-    /पंजी\s*करण\s*दि\s*नां\s*क\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
-    /\bDate\s*[:\-]\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+    /पंजी\s*करण\s*दि\s*नां\s*क\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
   ]));
-
-  record.tokenNumber = firstMatch(allText, [
+  record.tokenNumber = firstMatch(text, [
     /Token\s*No\.?\s*[:\-]?\s*([A-Z0-9_]+)/i,
     /\(Token\s*:\s*([A-Z0-9_]+)\)/i,
     /\b(PAN_[A-Z0-9_]+)\b/i
   ]);
 
-  const finance = extractFinancialFields(rows, allText);
-  record.deedAmount = finance.deedAmount;
-  record.landValue = finance.landValue;
-  record.stampDuty = finance.stampDuty;
-  record.registrationFees = finance.registrationFees;
-  record.warning = finance.warning;
+  const compact = compactText(text);
+  record.deedAmount = labeledAmount(compact, ["लेनदेनराशि","विक्रयराशि","transactionamount","considerationamount"]);
+  record.landValue = labeledAmount(compact, ["कलेक्टरदर","कलैक्टरदर","landvalue","collectorrate","collectorvalue"]);
+  record.stampDuty = labeledAmount(compact, ["कुलस्टाम्पशुल्क","कुलस्टांपशुल्क","stampdutypaid","stampduty"]);
+  record.registrationFees = labeledAmount(compact, ["पंजीकरणफीस","पंजीकरणशुल्क","registrationfees","registrationfee"]);
 
   return record;
 }
 
-function extractFinancialFields(rows, allText) {
-  const aliases = {
-    deedAmount: [
-      "लेनदेनराशि", "लेनदेनमूल्य", "प्रतिफलराशि", "विक्रयराशि",
-      "transactionamount", "considerationamount", "considerationvalue",
-      "deedamount"
-    ],
-    landValue: [
-      "कलेक्टरदर", "कलैक्टरदर", "भूमिमूल्य", "जमीनमूल्य",
-      "landvalue", "collectorvalue", "collectorrate",
-      "guidelinevalue", "circlevalue", "circlevalueofproperty"
-    ],
-    stampDuty: [
-      "कुलस्टाम्पशुल्क", "कुलस्टांपशुल्क", "कुलस्टााम्पशुल्क",
-      "stampdutypaid", "stampduty"
-    ],
-    registrationFees: [
-      "पंजीकरणफीस", "पंजीकरणशुल्क", "रजिस्ट्रेशनफीस",
-      "registrationfees", "registrationfee"
-    ]
-  };
+function extractImageRecord(text) {
+  const record = extractPdfRecord(text);
+  const compact = compactText(text);
 
-  const result = {
-    deedAmount: "",
-    landValue: "",
-    stampDuty: "",
-    registrationFees: "",
-    warning: false
-  };
-
-  for (const row of rows) {
-    const compact = compactText(row.text);
-    if (!result.deedAmount) {
-      result.deedAmount = amountAfterAnyAlias(compact, aliases.deedAmount);
-    }
-    if (!result.landValue) {
-      result.landValue = amountAfterAnyAlias(compact, aliases.landValue);
-    }
-    if (!result.stampDuty) {
-      result.stampDuty = amountAfterAnyAlias(compact, aliases.stampDuty);
-    }
-    if (!result.registrationFees) {
-      result.registrationFees =
-        amountAfterAnyAlias(compact, aliases.registrationFees);
-    }
+  if (!record.registryNumber) {
+    record.registryNumber = digits(firstMatch(text, [
+      /Registration\s*(?:No\.?|Number)\s*[:\-]?\s*(\d+)/i,
+      /(\d{3,6})\s+(?:Date|दिनांक)/i
+    ]));
   }
 
-  const fullCompact = compactText(allText);
-  if (!result.deedAmount) {
-    result.deedAmount = amountAfterAnyAlias(fullCompact, aliases.deedAmount);
-  }
-  if (!result.landValue) {
-    result.landValue = amountAfterAnyAlias(fullCompact, aliases.landValue);
-  }
-  if (!result.stampDuty) {
-    result.stampDuty = amountAfterAnyAlias(fullCompact, aliases.stampDuty);
-  }
-  if (!result.registrationFees) {
-    result.registrationFees =
-      amountAfterAnyAlias(fullCompact, aliases.registrationFees);
+  if (!record.registrationDate) {
+    record.registrationDate = dateValue(firstMatch(text, [
+      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/
+    ]));
   }
 
-  const financialRows = rows.filter(row => {
-    const compact = compactText(row.text);
-    return compact.includes("धनसंबंधीविवरण") ||
-      aliases.deedAmount.some(alias => compact.includes(alias)) ||
-      aliases.landValue.some(alias => compact.includes(alias)) ||
-      aliases.stampDuty.some(alias => compact.includes(alias)) ||
-      aliases.registrationFees.some(alias => compact.includes(alias));
-  });
-
-  const firstMoneyRow = financialRows.find(row => {
-    const nums = decimalAmounts(row.text);
-    return nums.length >= 2 &&
-      !/Stamp\s*Duty\s*Paid|Registration\s*Fees/i.test(row.text);
-  });
-
-  if (firstMoneyRow) {
-    const nums = decimalAmounts(firstMoneyRow.text);
-
-    if (!result.deedAmount && nums.length >= 1) {
-      result.deedAmount = nums[0];
-    }
-
-    if (!result.landValue) {
-      if (nums.length >= 3) {
-        result.landValue = nums[1];
-      } else if (nums.length === 2 &&
-                 result.stampDuty &&
-                 amountsEqual(nums[1], result.stampDuty)) {
-        result.landValue = "0.00";
-      }
-    }
-
-    if (!result.stampDuty) {
-      if (nums.length >= 3) {
-        result.stampDuty = nums[2];
-      } else if (nums.length === 2) {
-        result.stampDuty = nums[1];
-      }
-    }
-
-    if (!result.registrationFees) {
-      const firstIndex = rows.indexOf(firstMoneyRow);
-      const nextRows = rows.slice(firstIndex + 1, firstIndex + 5);
-      for (const row of nextRows) {
-        const nums2 = decimalAmounts(row.text);
-        if (nums2.length >= 2 &&
-            result.stampDuty &&
-            amountsEqual(nums2[0], result.stampDuty)) {
-          result.registrationFees = nums2[1];
-          break;
-        }
-      }
-    }
+  if (!record.tokenNumber) {
+    record.tokenNumber = firstMatch(text, [/\b(PAN_[A-Z0-9_]+)\b/i]);
   }
 
-  result.deedAmount = cleanAmount(result.deedAmount);
-  result.landValue = cleanAmount(result.landValue);
-  result.stampDuty = cleanAmount(result.stampDuty);
-  result.registrationFees = cleanAmount(result.registrationFees);
-
-  return result;
-}
-
-function amountAfterAnyAlias(compact, aliases) {
-  for (const alias of aliases) {
-    const index = compact.indexOf(alias);
-    if (index === -1) continue;
-
-    const after = compact.slice(index + alias.length, index + alias.length + 80);
-
-    // अगले label से पहले मौजूद number ही लिया जाएगा।
-    const boundary = after.search(
-      /(?:लेनदेन|कलेक्टर|कलैक्टर|भूमिमूल्य|जमीनमूल्य|कुलस्टा|पंजीकरण|registration|stampduty|landvalue|collector|transaction|consideration)/
-    );
-    const segment = boundary > 0 ? after.slice(0, boundary) : after;
-    const match = segment.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
-    return match ? cleanAmount(match[1]) : "";
-  }
-  return "";
-}
-
-function extractOcrRecord(text) {
-  const record = emptyRecord();
-  const clean = normalizeText(text);
-  record.deedType = extractDeedType(clean);
-  record.registryNumber = cleanInteger(firstMatch(clean, [
-    /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i
-  ]));
-  record.registrationDate = cleanDate(firstMatch(clean, [
-    /Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
-  ]));
-  record.tokenNumber = firstMatch(clean, [
-    /Token\s*(?:No\.?)?\s*[:\-]?\s*([A-Z0-9_]+)/i,
-    /\b(PAN_[A-Z0-9_]+)\b/i
-  ]);
-  record.stampDuty = cleanAmount(firstMatch(clean, [
-    /Stamp\s*Duty\s*Paid\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
-  ]));
-  record.registrationFees = cleanAmount(firstMatch(clean, [
-    /Registration\s*Fees?\s*[:\-]?\s*(?:₹\s*)?([\d,]+(?:\.\d{1,2})?)/i
-  ]));
-  record.warning = true;
   return record;
+}
+
+function mergeRecords(a, b) {
+  const out = emptyRecord();
+  out.deedType = a.deedType || b.deedType;
+  out.registryNumber = a.registryNumber || b.registryNumber;
+  out.registrationDate = a.registrationDate || b.registrationDate;
+  out.tokenNumber = a.tokenNumber || b.tokenNumber;
+  out.deedAmount = a.deedAmount !== "0.00" ? a.deedAmount : b.deedAmount;
+  out.landValue = a.landValue !== "0.00" ? a.landValue : b.landValue;
+  out.stampDuty = a.stampDuty !== "0.00" ? a.stampDuty : b.stampDuty;
+  out.registrationFees = a.registrationFees !== "0.00" ? a.registrationFees : b.registrationFees;
+  return out;
 }
 
 function extractDeedType(text) {
-  const patterns = [
-    [/\bTRANSFER\s+OF\s+IMMOVABLE\s+PROPERTY\s+DEED\b/i,
-      "TRANSFER OF IMMOVABLE PROPERTY"],
-    [/\bPOWER\s+OF\s+ATTORNEY\s+DEED\b/i, "POWER OF ATTORNEY"],
-    [/\bCONVEYANCE\s+DEED\b/i, "CONVEYANCE"],
-    [/\bAGREEMENT\s+DEED\b/i, "AGREEMENT"],
-    [/\bTARTIMA\s+DEED\b/i, "TARTIMA"],
-    [/\bTRUST\s+DEED\b/i, "TRUST"],
-    [/\bADOPTION\s+DEED\b/i, "ADOPTION"],
-    [/\bCANCELLATION\s+DEED\b/i, "CANCELLATION"],
-    [/\bRECTIFICATION\s+DEED\b/i, "RECTIFICATION"],
-    [/\bPARTITION\s+DEED\b/i, "PARTITION"],
-    [/\bRELEASE\s+DEED\b/i, "RELEASE"],
-    [/\bSURRENDER\s+OF\s+LEASE\b/i, "SURRENDER OF LEASE"],
-    [/\bLEASE\s+DEED\b/i, "LEASE"],
-    [/\bGIFT\s+DEED\b/i, "GIFT"],
-    [/\bSALE\s+DEED\b/i, "SALE"],
-    [/\bWILL\s+DEED\b/i, "WILL"],
+  const types = [
+    [/TRANSFER\s+OF\s+IMMOVABLE\s+PROPERTY/i, "TRANSFER OF IMMOVABLE PROPERTY"],
+    [/POWER\s+OF\s+ATTORNEY/i, "POWER OF ATTORNEY"],
+    [/CONVEYANCE/i, "CONVEYANCE"],
+    [/AGREEMENT/i, "AGREEMENT"],
+    [/TARTIMA/i, "TARTIMA"],
+    [/TRUST/i, "TRUST"],
+    [/ADOPTION/i, "ADOPTION"],
+    [/CANCELLATION/i, "CANCELLATION"],
+    [/RECTIFICATION/i, "RECTIFICATION"],
+    [/PARTITION/i, "PARTITION"],
+    [/RELEASE/i, "RELEASE"],
+    [/SURRENDER\s+OF\s+LEASE/i, "SURRENDER OF LEASE"],
+    [/LEASE/i, "LEASE"],
+    [/GIFT/i, "GIFT"],
+    [/SALE/i, "SALE"],
     [/\bWILL\b/i, "WILL"],
     [/\bGPA\b/i, "GPA"],
     [/\bSPA\b/i, "SPA"]
   ];
 
-  for (const [pattern, label] of patterns) {
+  for (const [pattern, label] of types) {
     if (pattern.test(text)) return label;
   }
-
-  const purpose = firstMatch(text, [
-    /Purpose\s*[:\-]\s*([A-Z][A-Z ]{1,50})/i
-  ]);
-  return purpose ? purpose.trim() : "";
+  return "";
 }
 
-function decimalAmounts(text) {
-  const matches = String(text || "")
-    .match(/(?<![\d/])\d[\d,]{0,14}\.\d{1,2}(?!\d)/g) || [];
-  return matches.map(cleanAmount);
+function labeledAmount(compact, labels) {
+  for (const label of labels) {
+    const index = compact.indexOf(label);
+    if (index === -1) continue;
+    const after = compact.slice(index + label.length, index + label.length + 70);
+    const match = after.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
+    if (match) return amount(match[1]);
+  }
+  return "0.00";
 }
 
-function compactText(text) {
-  return normalizeText(text)
-    .toLowerCase()
+function compactText(value) {
+  return normalize(value).toLowerCase()
     .replace(/[₹:;|()[\]{}–—\-_]/g, "")
     .replace(/\s+/g, "");
 }
 
-function normalizeText(text) {
-  return String(text || "")
+function normalize(value) {
+  return String(value || "")
     .replace(/\u00a0/g, " ")
     .replace(/\u200b|\u200c|\u200d|\ufeff/g, "")
     .replace(/[–—]/g, "-")
@@ -510,26 +358,18 @@ function firstMatch(text, patterns) {
   return "";
 }
 
-function cleanInteger(value) {
-  return String(value || "").replace(/[^\d]/g, "");
-}
-
-function cleanAmount(value) {
-  const cleaned = String(value ?? "")
-    .replace(/,/g, "")
-    .replace(/[^\d.]/g, "");
-
-  if (!cleaned) return "0.00";
-  const number = Number(cleaned);
+function amount(value) {
+  const clean = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  const number = Number(clean);
   return Number.isFinite(number) ? number.toFixed(2) : "0.00";
 }
 
-function cleanDate(value) {
-  return value ? String(value).replace(/-/g, "/") : "";
+function digits(value) {
+  return String(value || "").replace(/[^\d]/g, "");
 }
 
-function amountsEqual(a, b) {
-  return Math.abs(Number(a || 0) - Number(b || 0)) < 0.005;
+function dateValue(value) {
+  return value ? String(value).replace(/-/g, "/") : "";
 }
 
 function emptyRecord() {
@@ -543,14 +383,12 @@ function emptyRecord() {
     landValue: "0.00",
     stampDuty: "0.00",
     registrationFees: "0.00",
-    warning: false,
     status: ""
   };
 }
 
-function addTableRow(record, serial) {
-  const statusClass =
-    record.status === "Completed" ? "success" :
+function addRow(record, serial) {
+  const cls = record.status === "Completed" ? "success" :
     record.status === "Check" ? "warning" : "error";
 
   resultBody.insertAdjacentHTML("beforeend", `
@@ -561,62 +399,51 @@ function addTableRow(record, serial) {
       <td>${escapeHtml(record.registryNumber || "Not Found")}</td>
       <td>${escapeHtml(record.registrationDate || "Not Found")}</td>
       <td>${escapeHtml(record.tokenNumber || "Not Found")}</td>
-      <td>${escapeHtml(record.deedAmount)}</td>
-      <td>${escapeHtml(record.landValue)}</td>
-      <td>${escapeHtml(record.stampDuty)}</td>
-      <td>${escapeHtml(record.registrationFees)}</td>
-      <td class="${statusClass}">${escapeHtml(record.status)}</td>
+      <td>${record.deedAmount}</td>
+      <td>${record.landValue}</td>
+      <td>${record.stampDuty}</td>
+      <td>${record.registrationFees}</td>
+      <td class="${cls}">${record.status}</td>
     </tr>
   `);
 }
 
 function setProgress(done, total, message) {
-  const percentage = total ? Math.round((done / total) * 100) : 0;
-  progressBar.style.width = percentage + "%";
+  progressBar.style.width = (total ? Math.round(done / total * 100) : 0) + "%";
   statusText.textContent = message;
 }
 
+
 csvButton.addEventListener("click", () => {
-  if (!finalResults.length) return;
+  if (!results.length) return;
 
-  const rows = [
-    [
-      "Deed Type", "Registry Number", "Registration Date", "Token Number",
-      "Deed Amount", "Land Value", "Stamp Duty", "Registration Fee"
-    ],
-    ...finalResults.map(record => [
-      record.deedType,
-      record.registryNumber,
-      record.registrationDate,
-      record.tokenNumber,
-      record.deedAmount,
-      record.landValue,
-      record.stampDuty,
-      record.registrationFees
-    ])
-  ];
+  const rows = [[
+    "Deed Type","Registry Number","Registration Date","Token Number",
+    "Deed Amount","Land Value","Stamp Duty","Registration Fee"
+  ], ...results.map(r => [
+    r.deedType,r.registryNumber,r.registrationDate,r.tokenNumber,
+    r.deedAmount,r.landValue,r.stampDuty,r.registrationFees
+  ])];
 
-  const csv = "\uFEFF" +
-    rows.map(row => row.map(csvCell).join(",")).join("\n");
+  const csv = "\uFEFF" + rows.map(row =>
+    row.map(value => `"${String(value || "").replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
 
-  const blob = new Blob([csv], {type: "text/csv;charset=utf-8"});
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "panipat-registry-data.csv";
+  link.download = "registry-data.csv";
   link.click();
   URL.revokeObjectURL(url);
 });
 
-function csvCell(value) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
