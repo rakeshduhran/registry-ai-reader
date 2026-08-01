@@ -1,1 +1,69 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Reader</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header>PDF Reader</header>
 
+  <main class="container">
+    <section class="upload-box">
+      <h2>Registry PDF / Image Upload</h2>
+      <p>PDF: 1 File = 1 Registry</p>
+      <p>Images: 2 Images = 1 Registry (Page 1 + Page 2)</p>
+
+      <div class="buttons">
+        <label class="select-button" for="fileInput">📁 Select Files</label>
+        <input id="fileInput" type="file"
+          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+          multiple>
+        <button id="processButton" class="green-button" disabled>▶ Start Reading</button>
+        <button id="csvButton" class="gray-button" disabled>⬇ Download CSV</button>
+        <button id="clearButton" class="red-button" disabled>🗑 Clear</button>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="summary-box">Selected<strong id="selectedCount">0</strong></div>
+      <div class="summary-box">Completed<strong id="completedCount">0</strong></div>
+      <div class="summary-box">Failed<strong id="failedCount">0</strong></div>
+    </section>
+
+    <section id="fileList"></section>
+
+    <section id="progressArea">
+      <div class="progress-track"><div id="progressBar"></div></div>
+      <div id="statusText">Ready</div>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sr.</th>
+            <th>File Name</th>
+            <th>Deed Type</th>
+            <th>Registry No.</th>
+            <th>Registration Date</th>
+            <th>Token No.</th>
+            <th>Deed Amount</th>
+            <th>Land Value</th>
+            <th>Stamp Duty</th>
+            <th>Registration Fee</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr><td colspan="11">पहले PDF या Image Select करें</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
