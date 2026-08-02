@@ -1,35 +1,10 @@
-
 "use strict";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const $ = id => document.getElementById(id);
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
-
-async function saveToGoogleSheet(record) {
-  try {
-    await fetch(WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        deedType: record.deedType || "",
-        registryNumber: record.registryNumber || "",
-        registrationDate: record.registrationDate || "",
-        tokenNumber: record.tokenNumber || "",
-        deedAmount: record.deedAmount || "0.00",
-        landValue: record.landValue || "0.00",
-        stampDuty: record.stampDuty || "0.00",
-        registrationFees: record.registrationFees || "0.00",
-        status: record.status || "",
-        fileName: record.fileName || ""
-      })
-    });
-  } catch (error) {
-    console.error("Google Sheet save error:", error);
-  }
-}
+const $ = id => document.getElementById(id);
 
 const fileInput = $("fileInput");
 const readButton = $("readButton");
@@ -126,23 +101,30 @@ readButton.addEventListener("click", async () => {
       `Reading ${i + 1}/${selectedFiles.length}: ${file.name}`);
 
     try {
-      const text = await extractFirstTwoPages(file);
-      const record = parseRegistryText(text);
+      const pageData = await extractFirstTwoPages(file);
+      const record = parseRegistryPages(pageData);
       record.fileName = file.name;
 
-      const identityOkay = Boolean(
+      const identityComplete = Boolean(
         record.deedType &&
         record.registryNumber &&
         record.registrationDate &&
         record.tokenNumber
       );
 
-      record.status = identityOkay ? "Completed" : "Check";
-      if (identityOkay) completed++;
-      else checks++;
+      record.status =
+        identityComplete && record.financialFieldsFound === 4
+          ? "Completed"
+          : "Check";
+
+      if (record.status === "Completed") {
+        completed++;
+        await saveToGoogleSheet(record);
+      } else {
+        checks++;
+      }
 
       results.push(record);
-      await saveToGoogleSheet(record);
       appendRow(record, i + 1);
     } catch (error) {
       console.error(file.name, error);
@@ -165,24 +147,52 @@ readButton.addEventListener("click", async () => {
   csvButton.disabled = results.length === 0;
 });
 
+async function saveToGoogleSheet(record) {
+  try {
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        deedType: record.deedType || "",
+        registryNumber: record.registryNumber || "",
+        registrationDate: record.registrationDate || "",
+        tokenNumber: record.tokenNumber || "",
+        deedAmount: record.deedAmount || "0.00",
+        landValue: record.landValue || "0.00",
+        stampDuty: record.stampDuty || "0.00",
+        registrationFees: record.registrationFees || "0.00",
+        status: record.status || "",
+        fileName: record.fileName || ""
+      })
+    });
+  } catch (error) {
+    console.error("Google Sheet save error:", error);
+  }
+}
+
 async function extractFirstTwoPages(file) {
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data: buffer}).promise;
   const pageCount = Math.min(2, pdf.numPages);
-  const pageTexts = [];
+  const pages = [];
 
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
     statusText.textContent = `PDF Page ${pageNumber}/${pageCount} पढ़ रहा है...`;
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    const lines = groupPdfItemsIntoLines(content.items);
-    pageTexts.push(lines.join("\n"));
+    const rows = groupPdfItemsIntoRows(content.items);
+    pages.push({
+      pageNumber,
+      rows,
+      text: rows.map(row => row.text).join("\n")
+    });
   }
 
-  return normalizeText(pageTexts.join("\n"));
+  return pages;
 }
 
-function groupPdfItemsIntoLines(items) {
+function groupPdfItemsIntoRows(items) {
   const usable = items
     .filter(item => String(item.str || "").trim())
     .map(item => ({
@@ -206,145 +216,131 @@ function groupPdfItemsIntoLines(items) {
 
   return rows
     .sort((a, b) => b.y - a.y)
-    .map(row => row.items
-      .sort((a, b) => a.x - b.x)
-      .map(item => item.text)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim()
-    )
-    .filter(Boolean);
+    .map(row => {
+      const sorted = row.items.sort((a, b) => a.x - b.x);
+      return {
+        y: row.y,
+        text: sorted.map(item => item.text).join(" ").replace(/\s+/g, " ").trim()
+      };
+    })
+    .filter(row => row.text);
 }
 
-
-
-function parseRegistryText(text) {
-  const clean = normalizeText(text);
-  const compact = compactText(clean);
+function parseRegistryPages(pages) {
+  const fullText = normalizeText(pages.map(page => page.text).join("\n"));
+  const compact = compactText(fullText);
   const record = emptyRecord();
 
-  record.deedType = extractDeedType(clean);
+  record.deedType = extractDeedType(fullText);
 
   record.registryNumber =
-    extractByCompactLabel(compact, [
-      "प्रलेखक्र", "registrationno", "registrationnumber", "regno"
-    ], "integer") ||
-    firstMatch(clean, [
+    extractByCompactLabel(compact, ["प्रलेखक्र", "प्रलेखक्रमांक"], "integer") ||
+    firstMatch(fullText, [
       /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
-      /Registration\s*Number\s*[:\-]?\s*(\d+)/i,
-      /Reg(?:istration)?\s*No\.?\s*[:\-]?\s*(\d+)/i
+      /Registration\s*Number\s*[:\-]?\s*(\d+)/i
     ]);
 
   record.registrationDate = normalizeDate(
-    extractByCompactLabel(compact, [
-      "पंजीकरणदिनांक", "registrationdate"
-    ], "date") ||
-    firstMatch(clean, [
-      /Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,50}?Date\s*[:\-]?\s*(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/i,
-      /\bDate\s*[:\-]?\s*(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/i,
-      /(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{4})/
+    extractByCompactLabel(compact, ["पंजीकरणदिनांक"], "date") ||
+    firstMatch(fullText, [
+      /Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,50}?Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+      /\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
     ])
   );
 
-  record.tokenNumber =
-    extractToken(clean) ||
-    firstMatch(clean, [/\b(PAN_[A-Z0-9_]+)\b/i]);
+  record.tokenNumber = extractToken(fullText);
 
-  record.deedAmount = extractMoney(compact, [
-    "लेनदेनराशि", "लेनदेनराश", "transactionamount", "considerationamount", "deedamount"
-  ]);
-
-  record.landValue = extractMoney(compact, [
-    "कलेक्टरदर", "कलैक्टरदर", "landvalue", "collectorvalue", "collectorrate"
-  ]);
-
-  record.stampDuty =
-    extractMoney(compact, [
-      "कुलस्टाम्पशुल्क", "कुलस्टााम्पशुल्क", "कुलस्टांपशुल्क", "स्टाम्पशुल्क", "stampdutypaid", "stampduty"
-    ]) || "0.00";
-
-  record.registrationFees =
-    extractMoney(compact, [
-      "पंजीकरणफीस", "पंजीकरणशुल्क", "registrationfees", "registrationfee"
-    ]) || "0.00";
-
+  const financial = extractFinancialFields(fullText);
+  record.deedAmount = financial.deedAmount.value;
+  record.landValue = financial.landValue.value;
+  record.stampDuty = financial.stampDuty.value;
+  record.registrationFees = financial.registrationFees.value;
+  record.financialFieldsFound = [
+    financial.deedAmount.found,
+    financial.landValue.found,
+    financial.stampDuty.found,
+    financial.registrationFees.found
+  ].filter(Boolean).length;
 
   return record;
 }
 
-function inferDeedAmountFromKnownValues(text, landValue, stampDuty, registrationFee) {
-  const land = Number(landValue || 0);
-  const stamp = Number(stampDuty || 0);
-  const fee = Number(registrationFee || 0);
+/*
+  Financial extraction is deliberately strict:
+  - only first two pages are used;
+  - only decimal money values are accepted;
+  - values are read only after their Hindi word group;
+  - GRN/e-challan/RTGS/cheque numbers are never used;
+  - if a word group is not found, the field stays 0 and Status becomes Check.
+*/
+function extractFinancialFields(text) {
+  const canonical = canonicalForFinance(text);
 
-  const values = decimalAmountsFlexible(text).map(formatAmount);
-  const nums = values.map(Number);
-  let best = null;
+  return {
+    deedAmount: extractCanonicalMoney(
+      canonical,
+      /लनदन(?:रश)?/,
+      [/कलकटर/, /कलसटमप/, /पजकरणफस/]
+    ),
+    landValue: extractCanonicalMoney(
+      canonical,
+      /कलकटर(?:दर)?/,
+      [/कलसटमप/, /पजकरणफस/, /लनदन/]
+    ),
+    stampDuty: extractCanonicalMoney(
+      canonical,
+      /कलसटमप/,
+      [/पजकरणफस/, /लनदन/, /कलकटर/, /कलकरत|कलकरत|कलकरता|कलदवदर|कलनयस/]
+    ),
+    registrationFees: extractCanonicalMoney(
+      canonical,
+      /पजकरणफस/,
+      [/लनदन/, /कलकटर/, /कलसटमप/, /ईचलन/]
+    )
+  };
+}
 
-  // Main case: [Deal Amount, Land Value, Stamp Duty].
-  for (let i = 0; i + 2 < nums.length; i++) {
-    const deal = nums[i];
-    const landCandidate = nums[i + 1];
-    const stampCandidate = nums[i + 2];
-    let score = 0;
+function canonicalForFinance(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .toLowerCase()
+    .replace(/[\u0900-\u0903]/g, "")
+    .replace(/[\u093a-\u094f\u0951-\u0957\u0962-\u0963]/g, "")
+    .replace(/[₹,:;|()[\]{}–—\-_/\\\s]/g, "")
+    .replace(/[^\u0904-\u0939a-z0-9.]/g, "");
+}
 
-    if (nearlyEqual(landCandidate, land)) score += 100;
-    if (nearlyEqual(stampCandidate, stamp)) score += 100;
+function extractCanonicalMoney(canonical, anchorPattern, stopPatterns) {
+  const anchor = canonical.match(anchorPattern);
+  if (!anchor || anchor.index === undefined) {
+    return {found: false, value: "0.00"};
+  }
 
-    // Reject common stamp-certificate values being mistaken for deal amount.
-    if (nearlyEqual(deal, fee)) score -= 50;
-    if (deal === 101) score -= 30;
+  const valueStart = anchor.index + anchor[0].length;
+  let valueEnd = Math.min(canonical.length, valueStart + 120);
 
-    if (deal >= landCandidate || deal === 0) score += 10;
-
-    if (!best || score > best.score) {
-      best = {score, value: values[i]};
+  for (const stopPattern of stopPatterns) {
+    const tail = canonical.slice(valueStart);
+    const stop = tail.match(stopPattern);
+    if (stop && stop.index !== undefined && valueStart + stop.index < valueEnd) {
+      valueEnd = valueStart + stop.index;
     }
   }
 
-  if (best && best.score >= 180) return best.value;
+  const segment = canonical.slice(valueStart, valueEnd);
 
-  // Blank collector value case: [Deal Amount, Stamp Duty].
-  if (land === 0) {
-    let bestPair = null;
-    for (let i = 0; i + 1 < nums.length; i++) {
-      const deal = nums[i];
-      const stampCandidate = nums[i + 1];
-      let score = 0;
+  // Financial values in these PDFs are decimal amounts.
+  // This rejects e-challan, GRN, token, cheque and account numbers.
+  const amount = segment.match(/(\d{1,15}\.\d{1,2})/);
 
-      if (nearlyEqual(stampCandidate, stamp)) score += 100;
-      if (nearlyEqual(deal, fee)) score -= 50;
-      if (deal === 101) score -= 30;
-      if (deal >= stampCandidate || deal === 0) score += 10;
-
-      if (!bestPair || score > bestPair.score) {
-        bestPair = {score, value: values[i]};
-      }
-    }
-    if (bestPair && bestPair.score >= 90) return bestPair.value;
-  }
-
-  return "0.00";
-}
-
-function decimalAmountsFlexible(text) {
-  const matches = String(text || "").match(
-    /(?<![\d/])\d[\d,]{0,14}(?:\s*\.\s*\d{1,2})(?!\d)/g
-  ) || [];
-
-  return matches.map(value =>
-    value.replace(/\s+/g, "").replace(/,/g, "")
-  );
-}
-
-function nearlyEqual(a, b) {
-  return Math.abs(Number(a || 0) - Number(b || 0)) < 0.005;
+  return {
+    found: true,
+    value: amount ? formatAmount(amount[1]) : "0.00"
+  };
 }
 
 function extractDeedType(text) {
-  const lines = text.split(/\n+/).map(x => x.trim()).filter(Boolean);
-
-  const exact = [
+  const patterns = [
     ["TRANSFER OF IMMOVABLE PROPERTY", /TRANSFER\s+OF\s+IMMOVABLE\s+PROPERTY\s+DEED/i],
     ["POWER OF ATTORNEY", /POWER\s+OF\s+ATTORNEY\s+DEED/i],
     ["CONVEYANCE", /CONVEYANCE\s+DEED/i],
@@ -362,13 +358,8 @@ function extractDeedType(text) {
     ["RELEASE", /RELEASE\s+DEED/i]
   ];
 
-  for (const [label, pattern] of exact) {
+  for (const [label, pattern] of patterns) {
     if (pattern.test(text)) return label;
-  }
-
-  for (const line of lines) {
-    const m = line.match(/^([A-Z][A-Z /&()'-]{1,80})\s+DEED$/i);
-    if (m) return m[1].replace(/\s+/g, " ").trim().toUpperCase();
   }
 
   const purpose = firstMatch(text, [/Purpose\s*:\s*([A-Z][A-Z ]{1,60})/i]);
@@ -388,12 +379,7 @@ function normalizeText(value) {
 function compactText(value) {
   return normalizeText(value)
     .toLowerCase()
-    .replace(/स्टााम्प/g, "स्टाम्प")
-    .replace(/स्टांम्प/g, "स्टाम्प")
-    .replace(/स्टांप/g, "स्टाम्प")
-    .replace(/कलैक्टर/g, "कलेक्टर")
-    .replace(/रपये/g, "रुपये")
-    .replace(/[₹:;|()[\]{}–—\-_,/]/g, "")
+    .replace(/[₹:;|()[\]{}–—\-_,/.]/g, "")
     .replace(/\s+/g, "");
 }
 
@@ -401,63 +387,25 @@ function extractByCompactLabel(compact, labels, kind) {
   for (const label of labels) {
     const index = compact.indexOf(label);
     if (index === -1) continue;
+
     const after = compact.slice(index + label.length, index + label.length + 80);
 
     if (kind === "integer") {
-      const m = after.match(/(\d{1,10})/);
-      if (m) return m[1];
+      const match = after.match(/(\d{1,10})/);
+      if (match) return match[1];
     }
 
     if (kind === "date") {
-      const m = after.match(/(\d{1,2})(\d{1,2})(\d{4})/);
-      if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+      const match = after.match(/(\d{1,2})(\d{1,2})(\d{4})/);
+      if (match) return `${match[1]}/${match[2]}/${match[3]}`;
     }
   }
   return "";
 }
 
 function extractToken(text) {
-  const m = String(text || "").match(/\b(PAN_[A-Z0-9_]+)\b/i);
-  return m ? m[1] : "";
-}
-
-function extractMoney(compact, labels) {
-  const normalized = compactText(compact);
-  const boundaries = [
-    "लेनदेनराशि", "transactionamount", "considerationamount", "deedamount",
-    "कलेक्टरदर", "landvalue", "collectorvalue", "collectorrate",
-    "कुलस्टाम्पशुल्क", "स्टाम्पशुल्क", "stampdutypaid", "stampduty",
-    "पंजीकरणफीस", "पंजीकरणशुल्क", "registrationfees", "registrationfee",
-    "कुलक्रेता", "कुलदावेदार", "कुलन्यासी", "कुलप्राधिकत",
-    "स्टाम्पकामूल्य", "पेस्टिंगशुल्क", "ईचालान", "echallan",
-    "grnno", "grn", "stampno", "tokenno", "propertyid",
-    "rtgs", "neft", "cheque"
-  ].map(compactText);
-
-  for (const rawLabel of labels) {
-    const label = compactText(rawLabel);
-    const start = normalized.indexOf(label);
-    if (start === -1) continue;
-
-    const valueStart = start + label.length;
-    let valueEnd = Math.min(normalized.length, valueStart + 70);
-
-    for (const boundary of boundaries) {
-      if (!boundary || boundary === label) continue;
-      const next = normalized.indexOf(boundary, valueStart);
-      if (next !== -1 && next < valueEnd) valueEnd = next;
-    }
-
-    const segment = normalized.slice(valueStart, valueEnd);
-
-    // Example: "कलेक्टर दर- रुपये" means zero. Never borrow a later identifier.
-    if (/^(?:रुपये|rs|inr)/i.test(segment)) return "0.00";
-
-    const match = segment.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
-    return match ? formatAmount(match[1]) : "0.00";
-  }
-
-  return "0.00";
+  const match = String(text || "").match(/\b(PAN_[A-Z0-9_]+)\b/i);
+  return match ? match[1] : "";
 }
 
 function firstMatch(text, patterns) {
@@ -470,9 +418,11 @@ function firstMatch(text, patterns) {
 
 function normalizeDate(value) {
   if (!value) return "";
-  const s = String(value).replace(/-/g, "/");
-  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  return m ? `${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3]}` : s;
+  const normalized = String(value).replace(/-/g, "/");
+  const match = normalized.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return match
+    ? `${match[1].padStart(2, "0")}/${match[2].padStart(2, "0")}/${match[3]}`
+    : normalized;
 }
 
 function formatAmount(value) {
@@ -494,6 +444,7 @@ function emptyRecord() {
     landValue: "0.00",
     stampDuty: "0.00",
     registrationFees: "0.00",
+    financialFieldsFound: 0,
     status: ""
   };
 }
@@ -527,10 +478,17 @@ csvButton.addEventListener("click", () => {
 
   const rows = [[
     "Deed Type", "Registry Number", "Registration Date", "Token Number",
-    "Deed Amount", "Land Value", "Stamp Duty", "Registration Fee"
-  ], ...results.map(r => [
-    r.deedType, r.registryNumber, r.registrationDate, r.tokenNumber,
-    r.deedAmount, r.landValue, r.stampDuty, r.registrationFees
+    "Deed Amount", "Land Value", "Stamp Duty", "Registration Fee", "Status"
+  ], ...results.map(record => [
+    record.deedType,
+    record.registryNumber,
+    record.registrationDate,
+    record.tokenNumber,
+    record.deedAmount,
+    record.landValue,
+    record.stampDuty,
+    record.registrationFees,
+    record.status
   ])];
 
   const csv = "\uFEFF" + rows.map(row => row.map(csvCell).join(",")).join("\n");
