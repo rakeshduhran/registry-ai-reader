@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF Reader</title>
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Reader</title>
+<style>
 *{box-sizing:border-box}
 body{margin:0;background:#f3f6f4;color:#202124;font-family:Arial,sans-serif}
 header{background:#087c3e;color:#fff;text-align:center;padding:15px;font-size:23px;font-weight:700}
@@ -39,67 +39,297 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
 .warning{color:#b26a00;font-weight:700}
 .hidden{display:none}
 @media(max-width:650px){
-  header{font-size:20px}
-  .button{width:100%}
-  .upload-card h1{font-size:20px}
+header{font-size:20px}
+.button{width:100%}
+.upload-card h1{font-size:20px}
 }
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v6.0</span></header>
-
+<header>PDF Reader <span class="version">v7.0 Single File</span></header>
 <main class="container">
-  <section class="upload-card">
-    <h1>Registry PDF Upload</h1>
-    <p>एक साथ अधिकतम 100 PDF</p>
-    <div class="buttons">
-      <div class="button primary native-picker">📁 Select PDFs
-        <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple>
-      </div>
-      <button id="readButton" class="button primary" disabled>▶ Read Data</button>
-      <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
-      <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
-    </div>
-  </section>
-
-  <section class="summary">
-    <div>Selected<strong id="selectedCount">0</strong></div>
-    <div>Completed<strong id="completedCount">0</strong></div>
-    <div>Check<strong id="checkCount">0</strong></div>
-  </section>
-
-  <section id="fileList" class="file-list hidden"></section>
-
-  <section id="progressArea" class="progress-card hidden">
-    <div class="progress-track"><div id="progressBar"></div></div>
-    <div id="statusText">Ready</div>
-  </section>
-
-  <section class="table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>Sr.</th>
-          <th>Deed Type</th>
-          <th>Registry No.</th>
-          <th>Registration Date</th>
-          <th>Token No.</th>
-          <th>Deed Amount</th>
-          <th>Land Value</th>
-          <th>Stamp Duty</th>
-          <th>Registration Fee</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="resultBody">
-        <tr><td colspan="10">पहले PDF चुनें</td></tr>
-      </tbody>
-    </table>
-  </section>
+<section class="upload-card">
+<h1>Registry PDF Upload</h1>
+<p>एक साथ अधिकतम 100 PDF — केवल पहले 2 पेज पढ़े जाएंगे</p>
+<div class="buttons">
+<div class="button primary native-picker">📁 Select PDFs
+<input id="fileInput" type="file" accept="application/pdf,.pdf" multiple>
+</div>
+<button id="readButton" class="button primary" disabled>▶ Read Data</button>
+<button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
+<button id="clearButton" class="button danger" disabled>🗑 Clear</button>
+</div>
+</section>
+<section class="summary">
+<div>Selected<strong id="selectedCount">0</strong></div>
+<div>Completed<strong id="completedCount">0</strong></div>
+<div>Check<strong id="checkCount">0</strong></div>
+</section>
+<section id="fileList" class="file-list hidden"></section>
+<section id="progressArea" class="progress-card hidden">
+<div class="progress-track"><div id="progressBar"></div></div>
+<div id="statusText">Ready</div>
+</section>
+<section class="table-card">
+<table>
+<thead><tr>
+<th>Sr.</th><th>Deed Type</th><th>Registry No.</th><th>Registration Date</th>
+<th>Token No.</th><th>Deed Amount</th><th>Land Value</th><th>Stamp Duty</th>
+<th>Registration Fee</th><th>Status</th>
+</tr></thead>
+<tbody id="resultBody"><tr><td colspan="10">पहले PDF चुनें</td></tr></tbody>
+</table>
+</section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=60"></script>
-<script src="app.js?v=60"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+"use strict";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
+const $ = id => document.getElementById(id);
+const fileInput=$("fileInput"), readButton=$("readButton"), csvButton=$("csvButton"),
+clearButton=$("clearButton"), fileList=$("fileList"), progressArea=$("progressArea"),
+progressBar=$("progressBar"), statusText=$("statusText"), resultBody=$("resultBody"),
+selectedCount=$("selectedCount"), completedCount=$("completedCount"), checkCount=$("checkCount");
+
+let selectedFiles=[], results=[];
+
+fileInput.addEventListener("change",()=>{
+const chosen=Array.from(fileInput.files||[]);
+if(chosen.length>100){alert("एक बार में अधिकतम 100 PDF चुनें।");fileInput.value="";return;}
+selectedFiles=chosen.filter(f=>f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf"));
+results=[];
+selectedCount.textContent=selectedFiles.length;
+completedCount.textContent="0"; checkCount.textContent="0";
+readButton.disabled=!selectedFiles.length; csvButton.disabled=true; clearButton.disabled=!selectedFiles.length;
+fileList.classList.toggle("hidden",!selectedFiles.length);
+fileList.innerHTML=selectedFiles.map((f,i)=>`<div class="file-item">${i+1}. ${escapeHtml(f.name)}</div>`).join("");
+resultBody.innerHTML=selectedFiles.length
+?`<tr><td colspan="10">${selectedFiles.length} PDF चुनी गई हैं। अब Read Data दबाएँ।</td></tr>`
+:`<tr><td colspan="10">पहले PDF चुनें</td></tr>`;
+});
+
+clearButton.addEventListener("click",()=>{
+selectedFiles=[];results=[];fileInput.value="";
+selectedCount.textContent="0";completedCount.textContent="0";checkCount.textContent="0";
+readButton.disabled=true;csvButton.disabled=true;clearButton.disabled=true;
+fileList.innerHTML="";fileList.classList.add("hidden");progressArea.classList.add("hidden");
+progressBar.style.width="0%";resultBody.innerHTML='<tr><td colspan="10">पहले PDF चुनें</td></tr>';
+});
+
+readButton.addEventListener("click",async()=>{
+if(!selectedFiles.length)return;
+results=[];resultBody.innerHTML="";progressArea.classList.remove("hidden");
+readButton.disabled=true;csvButton.disabled=true;
+let completed=0,checks=0;
+for(let i=0;i<selectedFiles.length;i++){
+const file=selectedFiles[i];
+setProgress(i,selectedFiles.length,`Reading ${i+1}/${selectedFiles.length}: ${file.name}`);
+try{
+const pages=await readFirstTwoPages(file);
+const record=parseRegistry(pages.map(p=>p.text).join("\n"));
+record.fileName=file.name;
+record.status=(record.deedType&&record.registryNumber&&record.registrationDate&&record.tokenNumber)?"Completed":"Check";
+if(record.status==="Completed"){completed++;await saveToSheet(record);}else checks++;
+results.push(record);appendRow(record,i+1);
+}catch(err){
+console.error(file.name,err);
+const record=emptyRecord();record.fileName=file.name;record.status="Check";
+results.push(record);checks++;appendRow(record,i+1);
+}
+completedCount.textContent=completed;checkCount.textContent=checks;
+}
+setProgress(selectedFiles.length,selectedFiles.length,`Completed: ${completed} | Check: ${checks}`);
+readButton.disabled=false;csvButton.disabled=!results.length;
+});
+
+async function readFirstTwoPages(file){
+const buffer=await file.arrayBuffer();
+const pdf=await pdfjsLib.getDocument({data:buffer}).promise;
+const count=Math.min(2,pdf.numPages),pages=[];
+for(let n=1;n<=count;n++){
+statusText.textContent=`PDF Page ${n}/${count} पढ़ रहा है...`;
+const page=await pdf.getPage(n),content=await page.getTextContent();
+const rows=groupRows(content.items);
+pages.push({text:rows.join("\n")});
+}
+return pages;
+}
+
+function groupRows(items){
+const a=items.filter(x=>String(x.str||"").trim()).map(x=>({
+text:String(x.str||"").trim(),x:Number(x.transform?.[4]||0),y:Number(x.transform?.[5]||0)
+})).sort((p,q)=>(q.y-p.y)||(p.x-q.x));
+const rows=[],tol=4;
+for(const item of a){
+let row=rows.find(r=>Math.abs(r.y-item.y)<=tol);
+if(!row){row={y:item.y,items:[]};rows.push(row);}
+row.items.push(item);
+}
+return rows.sort((p,q)=>q.y-p.y).map(r=>r.items.sort((p,q)=>p.x-q.x)
+.map(x=>x.text).join(" ").replace(/\s+/g," ").trim()).filter(Boolean);
+}
+
+function parseRegistry(text){
+const clean=normalizeText(text), compact=compactText(clean), r=emptyRecord();
+
+r.deedType=extractDeedType(clean);
+
+r.registryNumber=
+extractAfterCompact(compact,["प्रलेखक्र","प्रलेखक्रमांक"],"integer")||
+firstMatch(clean,[
+/Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+/Registration\s*Number\s*[:\-]?\s*(\d+)/i
+]);
+
+r.registrationDate=normalizeDate(
+extractAfterCompact(compact,["पंजीकरणदिनांक"],"date")||
+firstMatch(clean,[
+/Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,60}?Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+/\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+]));
+
+r.tokenNumber=firstMatch(clean,[/\b(PAN_[A-Z0-9_]+)\b/i]);
+
+const c=canonicalHindi(clean);
+r.deedAmount=moneyAfterAnchor(c,/लनदन(?:रश)?/,[/कलकटर/,/कलसटमप/,/पजकरणफस/]);
+r.landValue=moneyAfterAnchor(c,/कलकटर(?:दर)?/,[/कलसटमप/,/पजकरणफस/,/लनदन/]);
+r.stampDuty=moneyAfterAnchor(c,/कलसटमप/,[/पजकरणफस/,/लनदन/,/कलकटर/,/कलकरत|कलदवदर|कलनयस|कलपरधकत/]);
+r.registrationFees=moneyAfterAnchor(c,/पजकरणफस/,[/ईचलन/,/लनदन/,/कलकटर/,/कलसटमप/]);
+
+return r;
+}
+
+function extractDeedType(text){
+const lines=normalizeText(text).split(/\n+/).map(s=>s.trim()).filter(Boolean);
+for(const line of lines.slice(0,25)){
+const m=line.match(/^(.{1,100}?)\s+DEED\s*$/i);
+if(m){
+return m[1].replace(/\s+/g," ").trim().toUpperCase();
+}
+}
+const m=normalizeText(text).match(/\b([A-Z][A-Z /&()'.,-]{1,100}?)\s+DEED\b/i);
+return m?m[1].replace(/\s+/g," ").trim().toUpperCase():"";
+}
+
+function canonicalHindi(value){
+return String(value||"").normalize("NFD").toLowerCase()
+.replace(/[\u0900-\u0903]/g,"")
+.replace(/[\u093a-\u094f\u0951-\u0957\u0962-\u0963]/g,"")
+.replace(/[₹,:;|()[\]{}–—\-_/\\\s]/g,"")
+.replace(/[^\u0904-\u0939a-z0-9.]/g,"");
+}
+
+function moneyAfterAnchor(canonical,anchorPattern,stopPatterns){
+const a=canonical.match(anchorPattern);
+if(!a||a.index===undefined)return "0.00";
+const start=a.index+a[0].length;
+let end=Math.min(canonical.length,start+100);
+const tail=canonical.slice(start);
+for(const p of stopPatterns){
+const s=tail.match(p);
+if(s&&s.index!==undefined&&start+s.index<end)end=start+s.index;
+}
+const segment=canonical.slice(start,end);
+const m=segment.match(/(\d{1,15}(?:\.\d{1,2})?)/);
+return m?formatAmount(m[1]):"0.00";
+}
+
+function normalizeText(v){
+return String(v||"").replace(/\u00a0/g," ")
+.replace(/[\u200b\u200c\u200d\ufeff]/g,"")
+.replace(/[–—]/g,"-").replace(/[ \t]+/g," ")
+.replace(/\n{2,}/g,"\n").trim();
+}
+
+function compactText(v){
+return normalizeText(v).toLowerCase()
+.replace(/[₹:;|()[\]{}–—\-_,/.]/g,"").replace(/\s+/g,"");
+}
+
+function extractAfterCompact(compact,labels,kind){
+for(const label of labels){
+const i=compact.indexOf(label);if(i<0)continue;
+const after=compact.slice(i+label.length,i+label.length+80);
+if(kind==="integer"){const m=after.match(/(\d{1,10})/);if(m)return m[1];}
+if(kind==="date"){const m=after.match(/(\d{1,2})(\d{1,2})(\d{4})/);if(m)return `${m[1]}/${m[2]}/${m[3]}`;}
+}
+return "";
+}
+
+function firstMatch(text,patterns){
+for(const p of patterns){const m=String(text||"").match(p);if(m&&m[1])return m[1].trim();}
+return "";
+}
+
+function normalizeDate(v){
+if(!v)return "";
+const s=String(v).replace(/-/g,"/");
+const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+return m?`${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3]}`:s;
+}
+
+function formatAmount(v){
+const n=Number(String(v||"").replace(/,/g,"").replace(/[^\d.]/g,""));
+return Number.isFinite(n)?n.toFixed(2):"0.00";
+}
+
+function emptyRecord(){
+return {fileName:"",deedType:"",registryNumber:"",registrationDate:"",
+tokenNumber:"",deedAmount:"0.00",landValue:"0.00",stampDuty:"0.00",
+registrationFees:"0.00",status:""};
+}
+
+async function saveToSheet(r){
+try{
+await fetch(WEB_APP_URL,{
+method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+deedType:r.deedType||"",registryNumber:r.registryNumber||"",
+registrationDate:r.registrationDate||"",tokenNumber:r.tokenNumber||"",
+deedAmount:r.deedAmount||"0.00",landValue:r.landValue||"0.00",
+stampDuty:r.stampDuty||"0.00",registrationFees:r.registrationFees||"0.00",
+status:r.status||"",fileName:r.fileName||""
+})
+});
+}catch(e){console.error("Google Sheet save error",e);}
+}
+
+function appendRow(r,i){
+const cls=r.status==="Completed"?"success":"warning";
+resultBody.insertAdjacentHTML("beforeend",`<tr>
+<td>${i}</td><td>${escapeHtml(r.deedType||"Not Found")}</td>
+<td>${escapeHtml(r.registryNumber||"Not Found")}</td>
+<td>${escapeHtml(r.registrationDate||"Not Found")}</td>
+<td>${escapeHtml(r.tokenNumber||"Not Found")}</td>
+<td>${r.deedAmount}</td><td>${r.landValue}</td><td>${r.stampDuty}</td>
+<td>${r.registrationFees}</td><td class="${cls}">${r.status}</td></tr>`);
+}
+
+function setProgress(done,total,msg){
+progressBar.style.width=(total?Math.round(done/total*100):0)+"%";
+statusText.textContent=msg;
+}
+
+csvButton.addEventListener("click",()=>{
+if(!results.length)return;
+const rows=[["Deed Type","Registry Number","Registration Date","Token Number",
+"Deed Amount","Land Value","Stamp Duty","Registration Fee","Status"],
+...results.map(r=>[r.deedType,r.registryNumber,r.registrationDate,r.tokenNumber,
+r.deedAmount,r.landValue,r.stampDuty,r.registrationFees,r.status])];
+const csv="\uFEFF"+rows.map(row=>row.map(csvCell).join(",")).join("\n");
+const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob);
+const a=document.createElement("a");a.href=url;a.download="registry-pdf-data.csv";a.click();
+URL.revokeObjectURL(url);
+});
+
+function csvCell(v){return `"${String(v??"").replace(/"/g,'""')}"`;}
+function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;")
+.replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+</script>
 </body>
 </html>
-
