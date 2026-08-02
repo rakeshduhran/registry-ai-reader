@@ -46,7 +46,7 @@ header{font-size:20px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v7.1 Single File</span></header>
+<header>PDF Reader <span class="version">v8.0 Single File</span></header>
 <main class="container">
 <section class="upload-card">
 <h1>Registry PDF Upload</h1>
@@ -84,6 +84,7 @@ header{font-size:20px}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
+
 "use strict";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -91,6 +92,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
 const $ = id => document.getElementById(id);
+
 const fileInput=$("fileInput"), readButton=$("readButton"), csvButton=$("csvButton"),
 clearButton=$("clearButton"), fileList=$("fileList"), progressArea=$("progressArea"),
 progressBar=$("progressBar"), statusText=$("statusText"), resultBody=$("resultBody"),
@@ -99,252 +101,441 @@ selectedCount=$("selectedCount"), completedCount=$("completedCount"), checkCount
 let selectedFiles=[], results=[];
 
 fileInput.addEventListener("change",()=>{
-const chosen=Array.from(fileInput.files||[]);
-if(chosen.length>100){alert("एक बार में अधिकतम 100 PDF चुनें।");fileInput.value="";return;}
-selectedFiles=chosen.filter(f=>f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf"));
-results=[];
-selectedCount.textContent=selectedFiles.length;
-completedCount.textContent="0"; checkCount.textContent="0";
-readButton.disabled=!selectedFiles.length; csvButton.disabled=true; clearButton.disabled=!selectedFiles.length;
-fileList.classList.toggle("hidden",!selectedFiles.length);
-fileList.innerHTML=selectedFiles.map((f,i)=>`<div class="file-item">${i+1}. ${escapeHtml(f.name)}</div>`).join("");
-resultBody.innerHTML=selectedFiles.length
-?`<tr><td colspan="10">${selectedFiles.length} PDF चुनी गई हैं। अब Read Data दबाएँ।</td></tr>`
-:`<tr><td colspan="10">पहले PDF चुनें</td></tr>`;
+  const chosen=Array.from(fileInput.files||[]);
+  if(chosen.length>100){
+    alert("एक बार में अधिकतम 100 PDF चुनें।");
+    fileInput.value="";
+    return;
+  }
+  selectedFiles=chosen.filter(f=>f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf"));
+  results=[];
+  selectedCount.textContent=selectedFiles.length;
+  completedCount.textContent="0";
+  checkCount.textContent="0";
+  readButton.disabled=!selectedFiles.length;
+  csvButton.disabled=true;
+  clearButton.disabled=!selectedFiles.length;
+  fileList.classList.toggle("hidden",!selectedFiles.length);
+  fileList.innerHTML=selectedFiles.map((f,i)=>`<div class="file-item">${i+1}. ${escapeHtml(f.name)}</div>`).join("");
+  resultBody.innerHTML=selectedFiles.length
+    ? `<tr><td colspan="10">${selectedFiles.length} PDF चुनी गई हैं। अब Read Data दबाएँ।</td></tr>`
+    : `<tr><td colspan="10">पहले PDF चुनें</td></tr>`;
 });
 
 clearButton.addEventListener("click",()=>{
-selectedFiles=[];results=[];fileInput.value="";
-selectedCount.textContent="0";completedCount.textContent="0";checkCount.textContent="0";
-readButton.disabled=true;csvButton.disabled=true;clearButton.disabled=true;
-fileList.innerHTML="";fileList.classList.add("hidden");progressArea.classList.add("hidden");
-progressBar.style.width="0%";resultBody.innerHTML='<tr><td colspan="10">पहले PDF चुनें</td></tr>';
+  selectedFiles=[];results=[];fileInput.value="";
+  selectedCount.textContent="0";completedCount.textContent="0";checkCount.textContent="0";
+  readButton.disabled=true;csvButton.disabled=true;clearButton.disabled=true;
+  fileList.innerHTML="";fileList.classList.add("hidden");progressArea.classList.add("hidden");
+  progressBar.style.width="0%";
+  resultBody.innerHTML='<tr><td colspan="10">पहले PDF चुनें</td></tr>';
 });
 
 readButton.addEventListener("click",async()=>{
-if(!selectedFiles.length)return;
-results=[];resultBody.innerHTML="";progressArea.classList.remove("hidden");
-readButton.disabled=true;csvButton.disabled=true;
-let completed=0,checks=0;
-for(let i=0;i<selectedFiles.length;i++){
-const file=selectedFiles[i];
-setProgress(i,selectedFiles.length,`Reading ${i+1}/${selectedFiles.length}: ${file.name}`);
-try{
-const pages=await readFirstTwoPages(file);
-const record=parseRegistry(pages.map(p=>p.text).join("\n"));
-record.fileName=file.name;
-record.status=(record.deedType&&record.registryNumber&&record.registrationDate&&record.tokenNumber)?"Completed":"Check";
-if(record.status==="Completed"){completed++;await saveToSheet(record);}else checks++;
-results.push(record);appendRow(record,i+1);
-}catch(err){
-console.error(file.name,err);
-const record=emptyRecord();record.fileName=file.name;record.status="Check";
-results.push(record);checks++;appendRow(record,i+1);
-}
-completedCount.textContent=completed;checkCount.textContent=checks;
-}
-setProgress(selectedFiles.length,selectedFiles.length,`Completed: ${completed} | Check: ${checks}`);
-readButton.disabled=false;csvButton.disabled=!results.length;
+  if(!selectedFiles.length)return;
+  results=[];
+  resultBody.innerHTML="";
+  progressArea.classList.remove("hidden");
+  readButton.disabled=true;
+  csvButton.disabled=true;
+
+  let completed=0, checks=0;
+
+  for(let i=0;i<selectedFiles.length;i++){
+    const file=selectedFiles[i];
+    setProgress(i,selectedFiles.length,`Reading ${i+1}/${selectedFiles.length}: ${file.name}`);
+
+    try{
+      const pages=await readFirstTwoPages(file);
+      const record=parseRegistryPages(pages);
+      record.fileName=file.name;
+
+      record.status=(
+        record.deedType &&
+        record.registryNumber &&
+        record.registrationDate &&
+        record.tokenNumber
+      ) ? "Completed" : "Check";
+
+      if(record.status==="Completed"){
+        completed++;
+        await saveToSheet(record);
+      }else{
+        checks++;
+      }
+
+      results.push(record);
+      appendRow(record,i+1);
+    }catch(err){
+      console.error(file.name,err);
+      const record=emptyRecord();
+      record.fileName=file.name;
+      record.status="Check";
+      results.push(record);
+      checks++;
+      appendRow(record,i+1);
+    }
+
+    completedCount.textContent=completed;
+    checkCount.textContent=checks;
+  }
+
+  setProgress(selectedFiles.length,selectedFiles.length,`Completed: ${completed} | Check: ${checks}`);
+  readButton.disabled=false;
+  csvButton.disabled=!results.length;
 });
 
 async function readFirstTwoPages(file){
-const buffer=await file.arrayBuffer();
-const pdf=await pdfjsLib.getDocument({data:buffer}).promise;
-const count=Math.min(2,pdf.numPages),pages=[];
-for(let n=1;n<=count;n++){
-statusText.textContent=`PDF Page ${n}/${count} पढ़ रहा है...`;
-const page=await pdf.getPage(n),content=await page.getTextContent();
-const rows=groupRows(content.items);
-pages.push({text:rows.join("\n")});
-}
-return pages;
+  const buffer=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buffer}).promise;
+  const count=Math.min(2,pdf.numPages);
+  const pages=[];
+
+  for(let n=1;n<=count;n++){
+    statusText.textContent=`PDF Page ${n}/${count} पढ़ रहा है...`;
+    const page=await pdf.getPage(n);
+    const content=await page.getTextContent();
+    pages.push({pageNumber:n,rows:groupRows(content.items)});
+  }
+  return pages;
 }
 
 function groupRows(items){
-const a=items.filter(x=>String(x.str||"").trim()).map(x=>({
-text:String(x.str||"").trim(),x:Number(x.transform?.[4]||0),y:Number(x.transform?.[5]||0)
-})).sort((p,q)=>(q.y-p.y)||(p.x-q.x));
-const rows=[],tol=4;
-for(const item of a){
-let row=rows.find(r=>Math.abs(r.y-item.y)<=tol);
-if(!row){row={y:item.y,items:[]};rows.push(row);}
-row.items.push(item);
-}
-return rows.sort((p,q)=>q.y-p.y).map(r=>r.items.sort((p,q)=>p.x-q.x)
-.map(x=>x.text).join(" ").replace(/\s+/g," ").trim()).filter(Boolean);
-}
+  const usable=items
+    .filter(item=>String(item.str||"").trim())
+    .map(item=>({
+      text:String(item.str||"").trim(),
+      x:Number(item.transform?.[4]||0),
+      y:Number(item.transform?.[5]||0)
+    }))
+    .sort((a,b)=>(b.y-a.y)||(a.x-b.x));
 
-function parseRegistry(text){
-const clean=normalizeText(text), compact=compactText(clean), r=emptyRecord();
+  const rows=[];
+  const tolerance=4;
 
-r.deedType=extractDeedType(clean);
+  for(const item of usable){
+    let row=rows.find(candidate=>Math.abs(candidate.y-item.y)<=tolerance);
+    if(!row){
+      row={y:item.y,items:[]};
+      rows.push(row);
+    }
+    row.items.push(item);
+  }
 
-r.registryNumber=
-extractAfterCompact(compact,["प्रलेखक्र","प्रलेखक्रमांक"],"integer")||
-firstMatch(clean,[
-/Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
-/Registration\s*Number\s*[:\-]?\s*(\d+)/i
-]);
-
-r.registrationDate=normalizeDate(
-extractAfterCompact(compact,["पंजीकरणदिनांक"],"date")||
-firstMatch(clean,[
-/Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,60}?Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
-/\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
-]));
-
-r.tokenNumber=firstMatch(clean,[/\b(PAN_[A-Z0-9_]+)\b/i]);
-
-const c=canonicalHindi(clean);
-r.deedAmount=moneyAfterAnchor(c,/लनदन(?:रश)?/,[/कलकटर/,/कलसटमप/,/पजकरणफस/]);
-r.landValue=moneyAfterAnchor(c,/कलकटर(?:दर)?/,[/कलसटमप/,/पजकरणफस/,/लनदन/]);
-r.stampDuty=moneyAfterAnchor(c,/कलसटमप/,[/पजकरणफस/,/लनदन/,/कलकटर/,/कलकरत|कलदवदर|कलनयस|कलपरधकत/]);
-
-// PDF.js कभी-कभी हिन्दी "कुल स्टा म्प" को उलटे/टूटे क्रम में देता है।
-// ऐसी स्थिति में Page-1 के Stamp Duty Paid के बाद की राशि ही लें।
-if(r.stampDuty==="0.00"){
-  r.stampDuty=moneyAfterTextLabel(clean,/Stamp\s*Duty\s*Paid\s*:?\s*₹?/i);
+  return rows
+    .sort((a,b)=>b.y-a.y)
+    .map(row=>row.items
+      .sort((a,b)=>a.x-b.x)
+      .map(item=>item.text)
+      .join(" ")
+      .replace(/\s+/g," ")
+      .trim()
+    )
+    .filter(Boolean);
 }
 
-r.registrationFees=moneyAfterAnchor(c,/पजकरणफस/,[/ईचलन/,/लनदन/,/कलकटर/,/कलसटमप/]);
+function parseRegistryPages(pages){
+  const page1=pages[0]?.rows||[];
+  const page2=pages[1]?.rows||[];
+  const allRows=[...page1,...page2];
+  const fullText=normalizeText(allRows.join("\n"));
+  const compact=compactText(fullText);
+  const record=emptyRecord();
 
-return r;
+  record.deedType=extractDeedType(allRows);
+
+  record.registryNumber=
+    extractAfterCompact(compact,["प्रलेखक्र","प्रलेखक्रमांक"],"integer") ||
+    firstMatch(fullText,[
+      /Registration\s*No\.?\s*[:\-]?\s*(\d+)/i,
+      /Registration\s*Number\s*[:\-]?\s*(\d+)/i
+    ]);
+
+  record.registrationDate=normalizeDate(
+    extractAfterCompact(compact,["पंजीकरणदिनांक"],"date") ||
+    firstMatch(fullText,[
+      /Registration\s*No\.?\s*[:\-]?\s*\d+[\s\S]{0,60}?Date\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+      /\bDate\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i
+    ])
+  );
+
+  record.tokenNumber=firstMatch(fullText,[/\b(PAN_[A-Z0-9_]+)\b/i]);
+
+  record.stampDuty=extractMoneyFromEnglishRows(page1,/Stamp\s*Duty\s*Paid/i);
+  record.registrationFees=extractMoneyFromEnglishRows(page1,/Registration\s*Fees?/i);
+
+  record.deedAmount=extractMoneyFromHindiRows(allRows,"deal");
+  record.landValue=extractMoneyFromHindiRows(allRows,"collector");
+
+  if(record.stampDuty==="0.00"){
+    record.stampDuty=extractMoneyFromHindiRows(allRows,"stamp");
+  }
+  if(record.registrationFees==="0.00"){
+    record.registrationFees=extractMoneyFromHindiRows(allRows,"regfee");
+  }
+
+  return record;
 }
 
-function extractDeedType(text){
-const lines=normalizeText(text).split(/\n+/).map(s=>s.trim()).filter(Boolean);
-for(const line of lines.slice(0,25)){
-const m=line.match(/^(.{1,100}?)\s+DEED\s*$/i);
-if(m){
-return m[1].replace(/\s+/g," ").trim().toUpperCase();
+function extractDeedType(rows){
+  for(const row of rows.slice(0,30)){
+    const line=normalizeText(row);
+    const match=line.match(/^(.{1,120}?)\s+DEED\s*$/i);
+    if(match)return match[1].replace(/\s+/g," ").trim().toUpperCase();
+  }
+  const text=normalizeText(rows.slice(0,30).join("\n"));
+  const match=text.match(/\b([A-Z][A-Z /&()'.,-]{1,120}?)\s+DEED\b/i);
+  return match?match[1].replace(/\s+/g," ").trim().toUpperCase():"";
 }
+
+function extractMoneyFromEnglishRows(rows,labelPattern){
+  for(let i=0;i<rows.length;i++){
+    const row=normalizeText(rows[i]);
+    const match=row.match(labelPattern);
+    if(!match)continue;
+
+    const after=row.slice((match.index||0)+match[0].length);
+    const same=firstValidMoney(after);
+    if(same!==null)return same;
+
+    for(let j=i+1;j<=Math.min(i+2,rows.length-1);j++){
+      const next=normalizeText(rows[j]);
+      if(/^(GRN|Stamp\s*No|Registration\s*Fees?|SELLER|BUYER|EXECUTANT|CLAIMANT|AUTHOR|TRUSTEES|ATTORNEY)\b/i.test(next)){
+        break;
+      }
+      const value=firstValidMoney(next);
+      if(value!==null)return value;
+    }
+    return "0.00";
+  }
+  return "0.00";
 }
-const m=normalizeText(text).match(/\b([A-Z][A-Z /&()'.,-]{1,100}?)\s+DEED\b/i);
-return m?m[1].replace(/\s+/g," ").trim().toUpperCase():"";
+
+function extractMoneyFromHindiRows(rows,field){
+  for(let i=0;i<rows.length;i++){
+    const canonical=canonicalHindi(rows[i]);
+    const anchor=findHindiAnchor(canonical,field);
+    if(!anchor)continue;
+
+    const segment=sliceHindiFieldSegment(canonical,anchor,field);
+    const same=firstValidMoney(segment);
+    if(same!==null)return same;
+
+    for(let j=i+1;j<=Math.min(i+2,rows.length-1);j++){
+      const nextCanonical=canonicalHindi(rows[j]);
+      if(hasAnyFinancialAnchor(nextCanonical))break;
+      const value=firstValidMoney(nextCanonical);
+      if(value!==null)return value;
+    }
+    return "0.00";
+  }
+  return "0.00";
+}
+
+function findHindiAnchor(canonical,field){
+  const patterns={
+    deal:/लनदन(?:रश)?/,
+    collector:/कलकटर(?:दर)?/,
+    stamp:/कलसटमप/,
+    regfee:/पजकरणफस/
+  };
+  const pattern=patterns[field];
+  if(!pattern)return null;
+  const match=canonical.match(pattern);
+  return match&&match.index!==undefined?{index:match.index,length:match[0].length}:null;
+}
+
+function sliceHindiFieldSegment(canonical,anchor,field){
+  const start=anchor.index+anchor.length;
+  let end=Math.min(canonical.length,start+80);
+
+  const stopPatterns={
+    deal:[/कलकटर/,/कलसटमप/,/पजकरणफस/],
+    collector:[/कलसटमप/,/पजकरणफस/,/लनदन/],
+    stamp:[/पजकरणफस/,/लनदन/,/कलकटर/,/कलकरत|कलदवदर|कलनयस|कलपरधकत/],
+    regfee:[/ईचलन/,/लनदन/,/कलकटर/,/कलसटमप/]
+  };
+
+  const tail=canonical.slice(start);
+  for(const pattern of (stopPatterns[field]||[])){
+    const match=tail.match(pattern);
+    if(match&&match.index!==undefined&&start+match.index<end)end=start+match.index;
+  }
+  return canonical.slice(start,end);
+}
+
+function hasAnyFinancialAnchor(canonical){
+  return /लनदन|कलकटर|कलसटमप|पजकरणफस|ईचलन/.test(canonical);
+}
+
+function firstValidMoney(text){
+  const matches=String(text||"").match(/\d[\d,]{0,14}\.\d{1,2}/g)||[];
+  for(const raw of matches){
+    const cleaned=raw.replace(/,/g,"");
+    if(!/^\d{1,15}\.\d{1,2}$/.test(cleaned))continue;
+    const integerPart=cleaned.split(".")[0];
+    if(integerPart.length>12)continue;
+    const number=Number(cleaned);
+    if(Number.isFinite(number))return number.toFixed(2);
+  }
+  return null;
 }
 
 function canonicalHindi(value){
-return String(value||"").normalize("NFD").toLowerCase()
-.replace(/[\u0900-\u0903]/g,"")
-.replace(/[\u093a-\u094f\u0951-\u0957\u0962-\u0963]/g,"")
-.replace(/[₹,:;|()[\]{}–—\-_/\\\s]/g,"")
-.replace(/[^\u0904-\u0939a-z0-9.]/g,"");
+  return String(value||"")
+    .normalize("NFD")
+    .toLowerCase()
+    .replace(/[\u0900-\u0903]/g,"")
+    .replace(/[\u093a-\u094f\u0951-\u0957\u0962-\u0963]/g,"")
+    .replace(/[₹,:;|()[\]{}–—\-_/\\\s]/g,"")
+    .replace(/[^\u0904-\u0939a-z0-9.]/g,"");
 }
 
-function moneyAfterAnchor(canonical,anchorPattern,stopPatterns){
-const a=canonical.match(anchorPattern);
-if(!a||a.index===undefined)return "0.00";
-const start=a.index+a[0].length;
-let end=Math.min(canonical.length,start+100);
-const tail=canonical.slice(start);
-for(const p of stopPatterns){
-const s=tail.match(p);
-if(s&&s.index!==undefined&&start+s.index<end)end=start+s.index;
-}
-const segment=canonical.slice(start,end);
-const m=segment.match(/(\d{1,15}(?:\.\d{1,2})?)/);
-return m?formatAmount(m[1]):"0.00";
+function normalizeText(value){
+  return String(value||"")
+    .replace(/\u00a0/g," ")
+    .replace(/[\u200b\u200c\u200d\ufeff]/g,"")
+    .replace(/[–—]/g,"-")
+    .replace(/[ \t]+/g," ")
+    .replace(/\n{2,}/g,"\n")
+    .trim();
 }
 
-function moneyAfterTextLabel(text,labelPattern){
-const m=String(text||"").match(labelPattern);
-if(!m||m.index===undefined)return "0.00";
-const after=String(text||"").slice(m.index+m[0].length,m.index+m[0].length+80);
-const amount=after.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
-return amount?formatAmount(amount[1]):"0.00";
-}
-
-function normalizeText(v){
-return String(v||"").replace(/\u00a0/g," ")
-.replace(/[\u200b\u200c\u200d\ufeff]/g,"")
-.replace(/[–—]/g,"-").replace(/[ \t]+/g," ")
-.replace(/\n{2,}/g,"\n").trim();
-}
-
-function compactText(v){
-return normalizeText(v).toLowerCase()
-.replace(/[₹:;|()[\]{}–—\-_,/.]/g,"").replace(/\s+/g,"");
+function compactText(value){
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[₹:;|()[\]{}–—\-_,/.]/g,"")
+    .replace(/\s+/g,"");
 }
 
 function extractAfterCompact(compact,labels,kind){
-for(const label of labels){
-const i=compact.indexOf(label);if(i<0)continue;
-const after=compact.slice(i+label.length,i+label.length+80);
-if(kind==="integer"){const m=after.match(/(\d{1,10})/);if(m)return m[1];}
-if(kind==="date"){const m=after.match(/(\d{1,2})(\d{1,2})(\d{4})/);if(m)return `${m[1]}/${m[2]}/${m[3]}`;}
-}
-return "";
+  for(const label of labels){
+    const index=compact.indexOf(label);
+    if(index<0)continue;
+    const after=compact.slice(index+label.length,index+label.length+80);
+
+    if(kind==="integer"){
+      const match=after.match(/(\d{1,10})/);
+      if(match)return match[1];
+    }
+
+    if(kind==="date"){
+      const match=after.match(/(\d{1,2})(\d{1,2})(\d{4})/);
+      if(match)return `${match[1]}/${match[2]}/${match[3]}`;
+    }
+  }
+  return "";
 }
 
 function firstMatch(text,patterns){
-for(const p of patterns){const m=String(text||"").match(p);if(m&&m[1])return m[1].trim();}
-return "";
+  for(const pattern of patterns){
+    const match=String(text||"").match(pattern);
+    if(match&&match[1])return match[1].trim();
+  }
+  return "";
 }
 
-function normalizeDate(v){
-if(!v)return "";
-const s=String(v).replace(/-/g,"/");
-const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-return m?`${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}/${m[3]}`:s;
-}
-
-function formatAmount(v){
-const n=Number(String(v||"").replace(/,/g,"").replace(/[^\d.]/g,""));
-return Number.isFinite(n)?n.toFixed(2):"0.00";
+function normalizeDate(value){
+  if(!value)return "";
+  const normalized=String(value).replace(/-/g,"/");
+  const match=normalized.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return match?`${match[1].padStart(2,"0")}/${match[2].padStart(2,"0")}/${match[3]}`:normalized;
 }
 
 function emptyRecord(){
-return {fileName:"",deedType:"",registryNumber:"",registrationDate:"",
-tokenNumber:"",deedAmount:"0.00",landValue:"0.00",stampDuty:"0.00",
-registrationFees:"0.00",status:""};
+  return {
+    fileName:"",
+    deedType:"",
+    registryNumber:"",
+    registrationDate:"",
+    tokenNumber:"",
+    deedAmount:"0.00",
+    landValue:"0.00",
+    stampDuty:"0.00",
+    registrationFees:"0.00",
+    status:""
+  };
 }
 
-async function saveToSheet(r){
-try{
-await fetch(WEB_APP_URL,{
-method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-deedType:r.deedType||"",registryNumber:r.registryNumber||"",
-registrationDate:r.registrationDate||"",tokenNumber:r.tokenNumber||"",
-deedAmount:r.deedAmount||"0.00",landValue:r.landValue||"0.00",
-stampDuty:r.stampDuty||"0.00",registrationFees:r.registrationFees||"0.00",
-status:r.status||"",fileName:r.fileName||""
-})
-});
-}catch(e){console.error("Google Sheet save error",e);}
+async function saveToSheet(record){
+  try{
+    await fetch(WEB_APP_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        deedType:record.deedType||"",
+        registryNumber:record.registryNumber||"",
+        registrationDate:record.registrationDate||"",
+        tokenNumber:record.tokenNumber||"",
+        deedAmount:record.deedAmount||"0.00",
+        landValue:record.landValue||"0.00",
+        stampDuty:record.stampDuty||"0.00",
+        registrationFees:record.registrationFees||"0.00",
+        status:record.status||"",
+        fileName:record.fileName||""
+      })
+    });
+  }catch(error){
+    console.error("Google Sheet save error",error);
+  }
 }
 
-function appendRow(r,i){
-const cls=r.status==="Completed"?"success":"warning";
-resultBody.insertAdjacentHTML("beforeend",`<tr>
-<td>${i}</td><td>${escapeHtml(r.deedType||"Not Found")}</td>
-<td>${escapeHtml(r.registryNumber||"Not Found")}</td>
-<td>${escapeHtml(r.registrationDate||"Not Found")}</td>
-<td>${escapeHtml(r.tokenNumber||"Not Found")}</td>
-<td>${r.deedAmount}</td><td>${r.landValue}</td><td>${r.stampDuty}</td>
-<td>${r.registrationFees}</td><td class="${cls}">${r.status}</td></tr>`);
+function appendRow(record,serial){
+  const cls=record.status==="Completed"?"success":"warning";
+  resultBody.insertAdjacentHTML("beforeend",`<tr>
+    <td>${serial}</td>
+    <td>${escapeHtml(record.deedType||"Not Found")}</td>
+    <td>${escapeHtml(record.registryNumber||"Not Found")}</td>
+    <td>${escapeHtml(record.registrationDate||"Not Found")}</td>
+    <td>${escapeHtml(record.tokenNumber||"Not Found")}</td>
+    <td>${record.deedAmount}</td>
+    <td>${record.landValue}</td>
+    <td>${record.stampDuty}</td>
+    <td>${record.registrationFees}</td>
+    <td class="${cls}">${record.status}</td>
+  </tr>`);
 }
 
-function setProgress(done,total,msg){
-progressBar.style.width=(total?Math.round(done/total*100):0)+"%";
-statusText.textContent=msg;
+function setProgress(done,total,message){
+  progressBar.style.width=(total?Math.round(done/total*100):0)+"%";
+  statusText.textContent=message;
 }
 
 csvButton.addEventListener("click",()=>{
-if(!results.length)return;
-const rows=[["Deed Type","Registry Number","Registration Date","Token Number",
-"Deed Amount","Land Value","Stamp Duty","Registration Fee","Status"],
-...results.map(r=>[r.deedType,r.registryNumber,r.registrationDate,r.tokenNumber,
-r.deedAmount,r.landValue,r.stampDuty,r.registrationFees,r.status])];
-const csv="\uFEFF"+rows.map(row=>row.map(csvCell).join(",")).join("\n");
-const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob);
-const a=document.createElement("a");a.href=url;a.download="registry-pdf-data.csv";a.click();
-URL.revokeObjectURL(url);
+  if(!results.length)return;
+
+  const rows=[[
+    "Deed Type","Registry Number","Registration Date","Token Number",
+    "Deed Amount","Land Value","Stamp Duty","Registration Fee","Status"
+  ],...results.map(record=>[
+    record.deedType,record.registryNumber,record.registrationDate,record.tokenNumber,
+    record.deedAmount,record.landValue,record.stampDuty,record.registrationFees,record.status
+  ])];
+
+  const csv="\uFEFF"+rows.map(row=>row.map(csvCell).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="registry-pdf-data.csv";
+  link.click();
+  URL.revokeObjectURL(url);
 });
 
-function csvCell(v){return `"${String(v??"").replace(/"/g,'""')}"`;}
-function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;")
-.replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+function csvCell(value){
+  return `"${String(value??"").replace(/"/g,'""')}"`;
+}
+
+function escapeHtml(value){
+  return String(value??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
 </script>
 </body>
 </html>
