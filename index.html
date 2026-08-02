@@ -46,7 +46,7 @@ header{font-size:20px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v7.0 Single File</span></header>
+<header>PDF Reader <span class="version">v7.1 Single File</span></header>
 <main class="container">
 <section class="upload-card">
 <h1>Registry PDF Upload</h1>
@@ -199,6 +199,13 @@ const c=canonicalHindi(clean);
 r.deedAmount=moneyAfterAnchor(c,/लनदन(?:रश)?/,[/कलकटर/,/कलसटमप/,/पजकरणफस/]);
 r.landValue=moneyAfterAnchor(c,/कलकटर(?:दर)?/,[/कलसटमप/,/पजकरणफस/,/लनदन/]);
 r.stampDuty=moneyAfterAnchor(c,/कलसटमप/,[/पजकरणफस/,/लनदन/,/कलकटर/,/कलकरत|कलदवदर|कलनयस|कलपरधकत/]);
+
+// PDF.js कभी-कभी हिन्दी "कुल स्टा म्प" को उलटे/टूटे क्रम में देता है।
+// ऐसी स्थिति में Page-1 के Stamp Duty Paid के बाद की राशि ही लें।
+if(r.stampDuty==="0.00"){
+  r.stampDuty=moneyAfterTextLabel(clean,/Stamp\s*Duty\s*Paid\s*:?\s*₹?/i);
+}
+
 r.registrationFees=moneyAfterAnchor(c,/पजकरणफस/,[/ईचलन/,/लनदन/,/कलकटर/,/कलसटमप/]);
 
 return r;
@@ -237,6 +244,14 @@ if(s&&s.index!==undefined&&start+s.index<end)end=start+s.index;
 const segment=canonical.slice(start,end);
 const m=segment.match(/(\d{1,15}(?:\.\d{1,2})?)/);
 return m?formatAmount(m[1]):"0.00";
+}
+
+function moneyAfterTextLabel(text,labelPattern){
+const m=String(text||"").match(labelPattern);
+if(!m||m.index===undefined)return "0.00";
+const after=String(text||"").slice(m.index+m[0].length,m.index+m[0].length+80);
+const amount=after.match(/(\d[\d,]{0,14}(?:\.\d{1,2})?)/);
+return amount?formatAmount(amount[1]):"0.00";
 }
 
 function normalizeText(v){
