@@ -46,7 +46,7 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v4.1</span></header>
+<header>PDF Reader <span class="version">v5.0</span></header>
 
 <main class="container">
   <section class="upload-card">
@@ -98,14 +98,10 @@ td{border:1px solid #ddd;padding:8px 6px;text-align:center;font-size:12px}
   </section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=41"></script>
-<script>
-"use strict";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-const $ = id => document.getElementById(id);
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js?v=50"></script>
+<script src="app.js?v=50"></script>
+</body>
+</html>
 
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
 
