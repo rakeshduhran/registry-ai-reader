@@ -46,7 +46,7 @@ header{font-size:20px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v9.1 · 500 PDFs + Sheet Save</span></header>
+<header>PDF Reader <span class="version">v9.2 Casebook · 500 PDFs</span></header>
 <main class="container">
 <section class="upload-card">
 <h1>Registry PDF Upload</h1>
@@ -57,7 +57,7 @@ header{font-size:20px}
 </div>
 <button id="readButton" class="button primary" disabled>▶ Read Data</button>
 <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
-<button id="saveButton" class="button secondary" disabled>☁ Google Sheet में Save</button>
+<button id="saveButton" class="button secondary" disabled>☁ Casebook Sheet में Save</button>
 <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
 </div>
 </section>
@@ -91,7 +91,7 @@ header{font-size:20px}
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwsexS0EZDX96negpoW02GuGh2oaC8aWUXvPJrdA_eT4jp-GBaKy6XV5mdZ7MKxfTzp/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
 const $ = id => document.getElementById(id);
 
 const fileInput=$("fileInput"), readButton=$("readButton"), csvButton=$("csvButton"), saveButton=$("saveButton"),
@@ -550,32 +550,50 @@ function emptyRecord(){
   };
 }
 
+function sheetRecord(record){
+  return {
+    deedType:record.deedType||"",
+    registryNumber:record.registryNumber||"",
+    registrationDate:record.registrationDate||"",
+    tokenNumber:record.tokenNumber||"",
+    deedAmount:record.deedAmount||"0.00",
+    landValue:record.landValue||"0.00",
+    stampDuty:record.stampDuty||"0.00",
+    registrationFees:record.registrationFees||"0.00",
+    status:record.status||"Completed",
+    fileName:record.fileName||""
+  };
+}
+
 saveButton.addEventListener("click",async()=>{
   const completedRecords=results.filter(record=>record.status==="Completed");
   if(!completedRecords.length){
-    alert("Google Sheet में save करने के लिए कोई Completed record नहीं है।");
+    alert("Casebook Sheet में save करने के लिए कोई Completed record नहीं है।");
     return;
   }
-  if(!confirm(`${completedRecords.length} Completed record Google Sheet में save करें?`))return;
+  if(!confirm(`${completedRecords.length} Completed record Casebook Sheet में save करें?`))return;
 
-  saveButton.disabled=true;
   const oldLabel=saveButton.textContent;
-  saveButton.textContent="Saving...";
-  statusText.textContent=`Google Sheet में ${completedRecords.length} record भेजे जा रहे हैं...`;
+  saveButton.disabled=true;
+  saveButton.textContent="Saving 0/"+completedRecords.length;
 
   try{
-    await fetch(WEB_APP_URL,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({records:completedRecords})
-    });
-    statusText.textContent=`${completedRecords.length} Completed record Google Sheet को भेज दिए गए।`;
-    alert("Data Google Sheet को भेज दिया गया है। समान Token Number दोबारा save नहीं होगा।");
+    for(let i=0;i<completedRecords.length;i++){
+      await fetch(WEB_APP_URL,{
+        method:"POST",
+        mode:"no-cors",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(sheetRecord(completedRecords[i]))
+      });
+      saveButton.textContent=`Saving ${i+1}/${completedRecords.length}`;
+      statusText.textContent=`Casebook Sheet में ${i+1}/${completedRecords.length} record भेजे गए...`;
+    }
+    statusText.textContent=`${completedRecords.length} Completed record Casebook Sheet को भेज दिए गए।`;
+    alert("Casebook Sheet में data भेज दिया गया है। Sheet खोलकर जाँचें।");
   }catch(error){
-    console.error("Google Sheet save error",error);
-    statusText.textContent="Google Sheet में data भेजने में error आया।";
-    alert("Data save नहीं हुआ। Internet connection और Apps Script deployment जाँचें।");
+    console.error("Casebook Sheet save error",error);
+    statusText.textContent="Casebook Sheet में data भेजने में error आया।";
+    alert("Data save नहीं हुआ। Internet connection और Casebook Apps Script deployment जाँचें।");
   }finally{
     saveButton.textContent=oldLabel;
     saveButton.disabled=!results.some(record=>record.status==="Completed");
@@ -640,4 +658,3 @@ function escapeHtml(value){
 </script>
 </body>
 </html>
-
