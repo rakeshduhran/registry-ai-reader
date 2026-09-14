@@ -46,17 +46,18 @@ header{font-size:20px}
 </style>
 </head>
 <body>
-<header>PDF Reader <span class="version">v9.0 Single File</span></header>
+<header>PDF Reader <span class="version">v9.1 · 500 PDFs + Sheet Save</span></header>
 <main class="container">
 <section class="upload-card">
 <h1>Registry PDF Upload</h1>
-<p>एक साथ अधिकतम 100 PDF — केवल पहले 2 पेज पढ़े जाएंगे</p>
+<p>एक साथ अधिकतम 500 PDF — केवल पहले 2 पेज पढ़े जाएंगे</p>
 <div class="buttons">
 <div class="button primary native-picker">📁 Select PDFs
 <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple>
 </div>
 <button id="readButton" class="button primary" disabled>▶ Read Data</button>
 <button id="csvButton" class="button secondary" disabled>⬇ Download CSV</button>
+<button id="saveButton" class="button secondary" disabled>☁ Google Sheet में Save</button>
 <button id="clearButton" class="button danger" disabled>🗑 Clear</button>
 </div>
 </section>
@@ -90,10 +91,10 @@ header{font-size:20px}
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzrKQrXyFjLEiYC26Z9DhXGiXu1ujDTEOjRZ-4BojkxXMmwiPPCbjkQu5AYmL6-nYX1/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwsexS0EZDX96negpoW02GuGh2oaC8aWUXvPJrdA_eT4jp-GBaKy6XV5mdZ7MKxfTzp/exec";
 const $ = id => document.getElementById(id);
 
-const fileInput=$("fileInput"), readButton=$("readButton"), csvButton=$("csvButton"),
+const fileInput=$("fileInput"), readButton=$("readButton"), csvButton=$("csvButton"), saveButton=$("saveButton"),
 clearButton=$("clearButton"), fileList=$("fileList"), progressArea=$("progressArea"),
 progressBar=$("progressBar"), statusText=$("statusText"), resultBody=$("resultBody"),
 selectedCount=$("selectedCount"), completedCount=$("completedCount"), checkCount=$("checkCount");
@@ -102,8 +103,8 @@ let selectedFiles=[], results=[];
 
 fileInput.addEventListener("change",()=>{
   const chosen=Array.from(fileInput.files||[]);
-  if(chosen.length>100){
-    alert("एक बार में अधिकतम 100 PDF चुनें।");
+  if(chosen.length>500){
+    alert("एक बार में अधिकतम 500 PDF चुनें।");
     fileInput.value="";
     return;
   }
@@ -114,6 +115,7 @@ fileInput.addEventListener("change",()=>{
   checkCount.textContent="0";
   readButton.disabled=!selectedFiles.length;
   csvButton.disabled=true;
+  saveButton.disabled=true;
   clearButton.disabled=!selectedFiles.length;
   fileList.classList.toggle("hidden",!selectedFiles.length);
   fileList.innerHTML=selectedFiles.map((f,i)=>`<div class="file-item">${i+1}. ${escapeHtml(f.name)}</div>`).join("");
@@ -125,7 +127,7 @@ fileInput.addEventListener("change",()=>{
 clearButton.addEventListener("click",()=>{
   selectedFiles=[];results=[];fileInput.value="";
   selectedCount.textContent="0";completedCount.textContent="0";checkCount.textContent="0";
-  readButton.disabled=true;csvButton.disabled=true;clearButton.disabled=true;
+  readButton.disabled=true;csvButton.disabled=true;saveButton.disabled=true;clearButton.disabled=true;
   fileList.innerHTML="";fileList.classList.add("hidden");progressArea.classList.add("hidden");
   progressBar.style.width="0%";
   resultBody.innerHTML='<tr><td colspan="10">पहले PDF चुनें</td></tr>';
@@ -138,6 +140,7 @@ readButton.addEventListener("click",async()=>{
   progressArea.classList.remove("hidden");
   readButton.disabled=true;
   csvButton.disabled=true;
+  saveButton.disabled=true;
 
   let completed=0, checks=0;
 
@@ -159,7 +162,6 @@ readButton.addEventListener("click",async()=>{
 
       if(record.status==="Completed"){
         completed++;
-        await saveToSheet(record);
       }else{
         checks++;
       }
@@ -183,6 +185,7 @@ readButton.addEventListener("click",async()=>{
   setProgress(selectedFiles.length,selectedFiles.length,`Completed: ${completed} | Check: ${checks}`);
   readButton.disabled=false;
   csvButton.disabled=!results.length;
+  saveButton.disabled=!results.some(record=>record.status==="Completed");
 });
 
 async function readFirstTwoPages(file){
@@ -547,29 +550,37 @@ function emptyRecord(){
   };
 }
 
-async function saveToSheet(record){
+saveButton.addEventListener("click",async()=>{
+  const completedRecords=results.filter(record=>record.status==="Completed");
+  if(!completedRecords.length){
+    alert("Google Sheet में save करने के लिए कोई Completed record नहीं है।");
+    return;
+  }
+  if(!confirm(`${completedRecords.length} Completed record Google Sheet में save करें?`))return;
+
+  saveButton.disabled=true;
+  const oldLabel=saveButton.textContent;
+  saveButton.textContent="Saving...";
+  statusText.textContent=`Google Sheet में ${completedRecords.length} record भेजे जा रहे हैं...`;
+
   try{
     await fetch(WEB_APP_URL,{
       method:"POST",
       mode:"no-cors",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        deedType:record.deedType||"",
-        registryNumber:record.registryNumber||"",
-        registrationDate:record.registrationDate||"",
-        tokenNumber:record.tokenNumber||"",
-        deedAmount:record.deedAmount||"0.00",
-        landValue:record.landValue||"0.00",
-        stampDuty:record.stampDuty||"0.00",
-        registrationFees:record.registrationFees||"0.00",
-        status:record.status||"",
-        fileName:record.fileName||""
-      })
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({records:completedRecords})
     });
+    statusText.textContent=`${completedRecords.length} Completed record Google Sheet को भेज दिए गए।`;
+    alert("Data Google Sheet को भेज दिया गया है। समान Token Number दोबारा save नहीं होगा।");
   }catch(error){
     console.error("Google Sheet save error",error);
+    statusText.textContent="Google Sheet में data भेजने में error आया।";
+    alert("Data save नहीं हुआ। Internet connection और Apps Script deployment जाँचें।");
+  }finally{
+    saveButton.textContent=oldLabel;
+    saveButton.disabled=!results.some(record=>record.status==="Completed");
   }
-}
+});
 
 function appendRow(record,serial){
   const cls=record.status==="Completed"?"success":"warning";
